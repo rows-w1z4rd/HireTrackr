@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>HireTrack — Pipeline</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="pipeline.css" />
+</head>
+<body>
+  <div class="noise"></div>
+
+  <div class="page">
+
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="logo">Hire<span>Track</span></div>
+        <div class="divider-v"></div>
+        <span class="page-subtitle">Pipeline</span>
+      </div>
+      <div class="topbar-right">
+        <span id="last-updated" class="muted-text"></span>
+        <button class="icon-btn" title="Refresh" onclick="location.reload()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="stats-grid" id="stats"></div>
+
+    <div class="board-label">
+      <span class="section-label">Kanban board</span>
+      <span class="board-hint">Drag cards to move between stages</span>
+    </div>
+    <div class="kanban" id="kanban"></div>
+
+    <div class="section-label" style="margin-top:32px;margin-bottom:12px;">Recent activity</div>
+    <div class="recent-list" id="recent"></div>
+
+  </div>
+
+  <!-- Edit modal -->
+  <div id="modal-overlay" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div>
+          <div class="modal-eyebrow">Editing</div>
+          <div class="modal-heading" id="modal-job-title">Job details</div>
+        </div>
+        <button id="modal-close" class="modal-close-btn">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <div class="field-row">
+          <div class="field">
+            <label>Job title</label>
+            <input id="m-title" type="text" placeholder="Senior Designer" />
+          </div>
+          <div class="field">
+            <label>Company</label>
+            <input id="m-company" type="text" placeholder="Stripe" />
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Status</label>
+            <select id="m-status">
+              <option value="saved">Saved</option>
+              <option value="applied">Applied</option>
+              <option value="interview">Interview</option>
+              <option value="offer">Offer</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>CV attached</label>
+            <select id="m-cv"><option value="">— None —</option></select>
+          </div>
+        </div>
+        <div class="field">
+          <label>Emailed recruiter?</label>
+          <select id="m-emailed">
+            <option value="false">Not yet</option>
+            <option value="true">Yes, emailed</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Notes</label>
+          <textarea id="m-notes" placeholder="Interview format, salary, contact, referral source..."></textarea>
+        </div>
+        <div class="field">
+          <label>URL</label>
+          <div class="url-row">
+            <span id="m-url-display" class="url-text"></span>
+            <button id="modal-open-url" class="btn-url">Open ↗</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button id="modal-delete" class="btn-delete">Delete job</button>
+        <div class="footer-right">
+          <button id="modal-cancel" class="btn-cancel">Cancel</button>
+          <button id="modal-save" class="btn-save">Save changes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="pipeline.js"></script>
+</body>
+</html>

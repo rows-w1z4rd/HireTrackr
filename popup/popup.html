@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="header">
+    <div class="logo">Hire<span>Track</span></div>
+    <div id="job-count" class="count-label">0 jobs saved</div>
+  </div>
+
+  <div style="padding: 8px 16px 0;">
+    <button id="open-pipeline" style="
+      width:100%; background:none; border:0.5px solid #e8e8e8;
+      border-radius:8px; padding:7px; font-size:12px; color:#888;
+      cursor:pointer; font-family:inherit;">
+      Open Pipeline →
+    </button>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="jobs">Jobs</button>
+    <button class="tab" data-tab="cvs">CV Vault</button>
+    <button class="tab" data-tab="emails">Emails</button>
+    <button class="tab" data-tab="snippets">Snippets</button>
+  </div>
+
+  <div class="content">
+
+    <!-- JOBS TAB -->
+    <div id="tab-jobs" class="tab-panel">
+      <button id="save-job-btn" class="btn-primary">+ Save this job</button>
+      <div class="section-label">Saved jobs</div>
+      <div id="jobs-list"></div>
+    </div>
+
+    <!-- CV VAULT TAB -->
+    <div id="tab-cvs" class="tab-panel hidden">
+      <label class="btn-primary upload-label">
+        + Upload CV
+        <input type="file" id="cv-upload" accept=".pdf,.docx" hidden />
+      </label>
+      <div class="section-label">Your CVs</div>
+      <div id="cvs-list"></div>
+    </div>
+
+    <!-- EMAILS TAB -->
+    <div id="tab-emails" class="tab-panel hidden">
+      <button id="add-template-btn" class="btn-primary">+ New template</button>
+      <div class="section-label">Email templates</div>
+      <div id="templates-list"></div>
+    </div>
+
+    <!-- SNIPPETS TAB -->
+    <div id="tab-snippets" class="tab-panel hidden">
+      <button id="add-snippet-btn" class="btn-primary">+ New snippet</button>
+      <div class="section-label">Snippets</div>
+      <div id="snippets-list"></div>
+    </div>
+
+  </div>
+
+  <!-- JOB DETAIL MODAL -->
+  <div id="job-modal" class="modal hidden">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span id="modal-title" style="font-weight:500;font-size:14px;"></span>
+        <button id="close-modal" class="close-btn">✕</button>
+      </div>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+  <script src="../jobDetection.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
