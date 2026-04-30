@@ -496,7 +496,10 @@ body {
   color: var(--text-1);
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
-  -webkit-appearance: none;
+  /* Use both for full compatibility */
+  -webkit-appearance: none; /* For Safari/Old Chrome */
+  -moz-appearance: none;    /* For Old Firefox */
+  appearance: none;         /* The standard property (fixes the error) */
 }
 .field input::placeholder,
 .field textarea::placeholder { color: var(--text-3); }
