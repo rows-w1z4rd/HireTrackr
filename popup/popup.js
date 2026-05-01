@@ -62,7 +62,7 @@ async function migrateCVsToIndexedDB() {
       await saveCVBlob(cv.id, blob);
       delete cv.data; // remove base64 from metadata
     } catch (err) {
-      console.error('Migration failed for CV:', cv.id, err);
+      // Migration failed silently - CV will remain in old format
     }
   }
 
@@ -134,7 +134,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     get: (key) => new Promise((resolve, reject) => {
       chrome.storage.local.get(key, (data) => {
         if (chrome.runtime.lastError) {
-          console.error('Storage get failed:', chrome.runtime.lastError.message);
           reject(new Error(chrome.runtime.lastError.message));
         } else {
           resolve(data[key] || []);
@@ -144,7 +143,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     set: (key, val) => new Promise((resolve, reject) => {
       chrome.storage.local.set({ [key]: val }, () => {
         if (chrome.runtime.lastError) {
-          console.error('Storage set failed:', chrome.runtime.lastError.message);
           showStorageError(chrome.runtime.lastError.message);
           reject(new Error(chrome.runtime.lastError.message));
         } else {
@@ -196,6 +194,18 @@ document.addEventListener('DOMContentLoaded', async () => {
       document.getElementById('onboarding').style.display = 'none';
       document.getElementById('main-app').style.display = 'block';
     });
+  }
+
+  // Protect support email from scrapers - inject dynamically with obfuscation
+  const supportEmailLink = document.getElementById('support-email');
+  if (supportEmailLink) {
+    // Obfuscated email - split and reversed to prevent simple scraping
+    const user = ['m', 'o', 'c', '.', 't', 'r', 'a', 'c', 'k', 'e', 'r', 'i', 'h'].reverse().join('');
+    const domain = ['m', 'o', 'c', '.', 'l', 'i', 'a', 'm', 'g'].reverse().join('');
+    const email = user + '@' + domain;
+    
+    supportEmailLink.href = 'mailto:' + email;
+    supportEmailLink.textContent = 'Contact Support';
   }
 
   // Listen for job data extracted by content.js
@@ -310,7 +320,7 @@ function bindButtons() {
         }
       } else if (delBtn) {
         const id = delBtn.dataset.del;
-        await deleteCVBlob(id).catch(e => console.error('Blob delete failed:', e));
+        await deleteCVBlob(id).catch(() => {}); // Silently ignore blob delete failures
         cvs = cvs.filter(c => c.id !== id);
         await store.set('cvs', cvs);
         renderCVs();
@@ -455,28 +465,65 @@ function exportJobsCSV() {
     alert('No jobs to export yet.');
     return;
   }
-  const headers = ['Title', 'Company', 'Status', 'URL', 'Emailed', 'Notes', 'Saved At', 'Updated At'];
-  const rows = jobs.map(j => [
-    j.title,
-    j.company,
-    j.status,
-    j.url,
-    j.emailed ? 'Yes' : 'No',
-    (j.notes || '').replace(/\n/g, ' ').replace(/\r/g, ''),
-    j.savedAt  ? j.savedAt.slice(0, 10)  : '',
-    j.updatedAt ? j.updatedAt.slice(0, 10) : ''
-  ].map(v => `"${String(v || '').replace(/"/g, '""')}"`).join(','));
+  
+  try {
+    const headers = ['Title', 'Company', 'Status', 'URL', 'Emailed', 'Notes', 'Saved At', 'Updated At'];
+    const rows = jobs.map(j => [
+      j.title,
+      j.company,
+      j.status,
+      j.url,
+      j.emailed ? 'Yes' : 'No',
+      (j.notes || '').replace(/\n/g, ' ').replace(/\r/g, ''),
+      j.savedAt  ? j.savedAt.slice(0, 10)  : '',
+      j.updatedAt ? j.updatedAt.slice(0, 10) : ''
+    ].map(v => `"${String(v || '').replace(/"/g, '""')}"`).join(','));
 
-  const csv = '\uFEFF' + [headers.join(','), ...rows].join('\n'); // BOM for Excel compatibility
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href     = url;
-  a.download = `hiretrack-export-${new Date().toISOString().slice(0, 10)}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+    const csv = '\uFEFF' + [headers.join(','), ...rows].join('\n'); // BOM for Excel compatibility
+    
+    // Create blob with error handling
+    let blob;
+    try {
+      blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    } catch (blobError) {
+      throw new Error('Failed to create CSV file. Your browser may not support this feature.');
+    }
+    
+    // Create download URL with error handling
+    let url;
+    try {
+      url = URL.createObjectURL(blob);
+    } catch (urlError) {
+      throw new Error('Failed to create download link. Please try again.');
+    }
+    
+    // Create and trigger download
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `hiretrack-export-${new Date().toISOString().slice(0, 10)}.csv`;
+    
+    try {
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (downloadError) {
+      throw new Error('Failed to start download. Please check your browser settings.');
+    }
+    
+    // Clean up URL object
+    setTimeout(() => {
+      try {
+        URL.revokeObjectURL(url);
+      } catch (revokeError) {
+        // Silently ignore cleanup errors
+      }
+    }, 1000);
+    
+  } catch (error) {
+    // Show user-friendly error message
+    const errorMessage = error.message || 'An unexpected error occurred while exporting CSV.';
+    alert(`Export failed: ${errorMessage}`);
+  }
 }
 
 // ── RENDER JOBS ───────────────────────────────────────────────────
@@ -741,7 +788,6 @@ async function handleCVUpload(e) {
     await store.set('cvs', cvs);
     renderCVs();
   } catch (err) {
-    console.error('CV upload failed:', err);
     alert('Failed to save CV. Please try again.');
   }
   e.target.value = '';

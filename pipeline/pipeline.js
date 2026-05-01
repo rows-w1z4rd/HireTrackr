@@ -22,7 +22,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     jobs = data.jobs || [];
     cvs  = data.cvs  || [];
   } catch (err) {
-    console.error('Failed to load data:', err);
     jobs = [];
     cvs = [];
   }
@@ -35,7 +34,6 @@ async function persist() {
   return new Promise((resolve, reject) => {
     chrome.storage.local.set({ jobs }, () => {
       if (chrome.runtime.lastError) {
-        console.error('Pipeline persist failed:', chrome.runtime.lastError.message);
         reject(new Error(chrome.runtime.lastError.message));
       } else {
         resolve();
