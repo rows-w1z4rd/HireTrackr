@@ -68,33 +68,80 @@ function renderStats() {
     total: 'c-teal', applied: 'c-blue',
     interview: 'c-amber', offer: 'c-green', rejected: 'c-red'
   };
-  document.getElementById('stats').innerHTML =
-    Object.keys(counts).map(k => `
-      <div class="stat-card" data-k="${k}">
-        <div class="stat-num ${colors[k]}">${counts[k]}</div>
-        <div class="stat-label">${labels[k]}</div>
-      </div>`).join('');
+  const statsContainer = document.getElementById('stats');
+  statsContainer.innerHTML = '';
+  
+  Object.keys(counts).forEach(k => {
+    const statCard = document.createElement('div');
+    statCard.className = 'stat-card';
+    statCard.dataset.k = k;
+    
+    const statNum = document.createElement('div');
+    statNum.className = `stat-num ${colors[k]}`;
+    statNum.textContent = counts[k];
+    
+    const statLabel = document.createElement('div');
+    statLabel.className = 'stat-label';
+    statLabel.textContent = labels[k];
+    
+    statCard.appendChild(statNum);
+    statCard.appendChild(statLabel);
+    statsContainer.appendChild(statCard);
+  });
 }
 
 // ── Kanban ────────────────────────────────────────────────────────
 function renderKanban() {
   const kanban = document.getElementById('kanban');
-  kanban.innerHTML = STATUSES.map(status => {
+  kanban.innerHTML = '';
+
+  STATUSES.forEach(status => {
     const colJobs = jobs.filter(j => j.status === status);
-    return `
-      <div class="k-col" data-status="${status}" id="col-${status}">
-        <div class="k-header">
-          <span class="k-name">${STATUS_LABELS[status]}</span>
-          <span class="k-count" id="count-${status}">${colJobs.length}</span>
-        </div>
-        <div class="k-cards" id="cards-${status}">
-          ${colJobs.length === 0
-            ? '<div class="k-empty" id="empty-'+status+'">Drop here</div>'
-            : colJobs.map(j => cardHTML(j)).join('')
-          }
-        </div>
-      </div>`;
-  }).join('');
+    
+    // Create column
+    const col = document.createElement('div');
+    col.className = 'k-col';
+    col.dataset.status = status;
+    col.id = `col-${status}`;
+    
+    // Create header
+    const header = document.createElement('div');
+    header.className = 'k-header';
+    
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'k-name';
+    nameSpan.textContent = STATUS_LABELS[status];
+    
+    const countSpan = document.createElement('span');
+    countSpan.className = 'k-count';
+    countSpan.id = `count-${status}`;
+    countSpan.textContent = colJobs.length;
+    
+    header.appendChild(nameSpan);
+    header.appendChild(countSpan);
+    
+    // Create cards container
+    const cardsContainer = document.createElement('div');
+    cardsContainer.className = 'k-cards';
+    cardsContainer.id = `cards-${status}`;
+    
+    if (colJobs.length === 0) {
+      const emptyDiv = document.createElement('div');
+      emptyDiv.className = 'k-empty';
+      emptyDiv.id = `empty-${status}`;
+      emptyDiv.textContent = 'Drop here';
+      cardsContainer.appendChild(emptyDiv);
+    } else {
+      colJobs.forEach(job => {
+        const cardElement = createCardElement(job);
+        cardsContainer.appendChild(cardElement);
+      });
+    }
+    
+    col.appendChild(header);
+    col.appendChild(cardsContainer);
+    kanban.appendChild(col);
+  });
 
   // Bind drag events on cards
   kanban.querySelectorAll('.k-card').forEach(card => bindCardEvents(card));
@@ -103,25 +150,67 @@ function renderKanban() {
   kanban.querySelectorAll('.k-col').forEach(col => bindColDrop(col));
 }
 
-function cardHTML(j) {
-  const cv = cvs.find(c => c.id === j.cvId);
-  return `
-    <div class="k-card ${j.status}" data-id="${j.id}" draggable="true">
-      <div class="k-title">${escHtml(j.title)}</div>
-      <div class="k-company">${escHtml(j.company)}</div>
-      <div class="k-card-footer">
-        ${cv ? `<span class="k-cv">${escHtml(cv.name)}</span>` : ''}
-        ${j.notes ? '<span class="k-note-dot" title="Has notes"></span>' : ''}
-      </div>
-      <div class="k-actions">
-        <button class="k-btn k-btn-edit" data-id="${j.id}" title="Edit">Edit</button>
-        <button class="k-btn k-btn-link" data-url="${escHtml(j.url)}" title="Open job">↗</button>
-      </div>
-    </div>`;
+function createCardElement(job) {
+  const cv = cvs.find(c => c.id === job.cvId);
+  
+  const card = document.createElement('div');
+  card.className = `k-card ${job.status}`;
+  card.dataset.id = job.id;
+  card.draggable = true;
+  
+  const title = document.createElement('div');
+  title.className = 'k-title';
+  title.textContent = job.title;
+  
+  const company = document.createElement('div');
+  company.className = 'k-company';
+  company.textContent = job.company;
+  
+  const footer = document.createElement('div');
+  footer.className = 'k-card-footer';
+  
+  if (cv) {
+    const cvSpan = document.createElement('span');
+    cvSpan.className = 'k-cv';
+    cvSpan.textContent = cv.name;
+    footer.appendChild(cvSpan);
+  }
+  
+  if (job.notes) {
+    const noteDot = document.createElement('span');
+    noteDot.className = 'k-note-dot';
+    noteDot.title = 'Has notes';
+    footer.appendChild(noteDot);
+  }
+  
+  const actions = document.createElement('div');
+  actions.className = 'k-actions';
+  
+  const editBtn = document.createElement('button');
+  editBtn.className = 'k-btn k-btn-edit';
+  editBtn.dataset.id = job.id;
+  editBtn.title = 'Edit';
+  editBtn.textContent = 'Edit';
+  
+  const linkBtn = document.createElement('button');
+  linkBtn.className = 'k-btn k-btn-link';
+  linkBtn.dataset.url = job.url;
+  linkBtn.title = 'Open job';
+  linkBtn.textContent = '↗';
+  
+  actions.appendChild(editBtn);
+  actions.appendChild(linkBtn);
+  
+  card.appendChild(title);
+  card.appendChild(company);
+  card.appendChild(footer);
+  card.appendChild(actions);
+  
+  return card;
 }
 
 function bindCardEvents(card) {
-  // Drag
+  // Drag events only - click events handled by event delegation
   card.addEventListener('dragstart', e => {
     dragId = card.dataset.id;
     card.classList.add('dragging');
@@ -132,19 +221,6 @@ function bindCardEvents(card) {
     card.classList.remove('dragging');
     document.querySelectorAll('.k-col').forEach(c => c.classList.remove('drag-over'));
     dragId = null;
-  });
-
-  // Edit button
-  card.querySelector('.k-btn-edit').addEventListener('click', e => {
-    e.stopPropagation();
-    openEditModal(card.dataset.id);
-  });
-
-  // Open URL button
-  card.querySelector('.k-btn-link').addEventListener('click', e => {
-    e.stopPropagation();
-    const url = e.currentTarget.dataset.url;
-    if (url) chrome.tabs.create({ url });
   });
 }
 
@@ -188,6 +264,23 @@ function bindModal() {
     const job = jobs.find(j => j.id === editingId);
     if (job) chrome.tabs.create({ url: job.url });
   });
+  
+  // Event delegation for kanban cards - prevents memory leaks
+  const kanban = document.getElementById('kanban');
+  if (kanban) {
+    kanban.addEventListener('click', (e) => {
+      const editBtn = e.target.closest('.k-btn-edit');
+      const linkBtn = e.target.closest('.k-btn-link');
+      
+      if (editBtn) {
+        e.stopPropagation();
+        openEditModal(editBtn.dataset.id);
+      } else if (linkBtn) {
+        e.stopPropagation();
+        chrome.tabs.create({ url: linkBtn.dataset.url });
+      }
+    });
+  }
 }
 
 function openEditModal(id) {
@@ -207,8 +300,20 @@ function openEditModal(id) {
 
   // Populate CV dropdown
   const cvSel = document.getElementById('m-cv');
-  cvSel.innerHTML = '<option value="">— No CV attached —</option>' +
-    cvs.map(c => `<option value="${c.id}" ${job.cvId === c.id ? 'selected' : ''}>${escHtml(c.name)}</option>`).join('');
+  cvSel.innerHTML = '';
+  
+  const noneOption = document.createElement('option');
+  noneOption.value = '';
+  noneOption.textContent = '— No CV attached —';
+  cvSel.appendChild(noneOption);
+  
+  cvs.forEach(c => {
+    const option = document.createElement('option');
+    option.value = c.id;
+    option.textContent = c.name;
+    if (job.cvId === c.id) option.selected = true;
+    cvSel.appendChild(option);
+  });
 
   document.getElementById('modal-overlay').classList.remove('hidden');
 }
@@ -267,16 +372,37 @@ function renderRecent(jobs_list = jobs) {
     .sort((a, b) => new Date(b.updatedAt || b.savedAt) - new Date(a.updatedAt || a.savedAt))
     .slice(0, 8);
 
+  el.innerHTML = '';
+
   if (!sorted.length) {
-    el.innerHTML = '<div class="recent-empty">No activity yet — save your first job to get started.</div>';
+    const emptyDiv = document.createElement('div');
+    emptyDiv.className = 'recent-empty';
+    emptyDiv.textContent = 'No activity yet — save your first job to get started.';
+    el.appendChild(emptyDiv);
     return;
   }
-  el.innerHTML = sorted.map(j => `
-    <div class="recent-row">
-      <span class="recent-title">${escHtml(j.title)} — ${escHtml(j.company)}</span>
-      <span class="pill pill-${j.status}">${j.status}</span>
-      <span class="recent-time">${timeAgo(j.updatedAt || j.savedAt)}</span>
-    </div>`).join('');
+
+  sorted.forEach(j => {
+    const row = document.createElement('div');
+    row.className = 'recent-row';
+    
+    const titleSpan = document.createElement('span');
+    titleSpan.className = 'recent-title';
+    titleSpan.textContent = `${j.title} — ${j.company}`;
+    
+    const statusSpan = document.createElement('span');
+    statusSpan.className = `pill pill-${j.status}`;
+    statusSpan.textContent = j.status;
+    
+    const timeSpan = document.createElement('span');
+    timeSpan.className = 'recent-time';
+    timeSpan.textContent = timeAgo(j.updatedAt || j.savedAt);
+    
+    row.appendChild(titleSpan);
+    row.appendChild(statusSpan);
+    row.appendChild(timeSpan);
+    el.appendChild(row);
+  });
 }
 
 // ── Utils ─────────────────────────────────────────────────────────
