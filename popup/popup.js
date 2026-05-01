@@ -165,13 +165,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (!onboarded) {
     document.getElementById('main-app').style.display = 'none';
     document.getElementById('onboarding').style.display = 'block';
-
-    document.getElementById('onboarding-start').addEventListener('click', async () => {
+    document.getElementById('close-help-btn').addEventListener('click', async () => {
       await new Promise(res => chrome.storage.local.set({ onboarded: true }, res));
       document.getElementById('onboarding').style.display = 'none';
       document.getElementById('main-app').style.display = 'block';
+      await migrateCVsToIndexedDB();
+      renderAll();
+      bindTabs();
+      bindButtons();
     });
-    return; // don't render the rest yet
+    return;
   }
 
   // Add this line right after loading cvs and before renderAll():
@@ -407,10 +410,15 @@ async function saveCurrentJob() {
     if (!go) return;
   }
 
+  const btn = document.getElementById('save-job-btn');
+  const prefillTitle   = btn?.dataset.prefillTitle   || '';
+  const prefillCompany = btn?.dataset.prefillCompany || '';
+  const rawTitle = tab.title.split(' - ')[0].split(' | ')[0].trim() || 'Untitled Job';
+
   const job = {
     id: crypto.randomUUID(),
-    title: tab.title.split(' - ')[0] || 'Untitled Job',
-    company: extractCompany(tab.title),
+    title: (prefillTitle || rawTitle).slice(0, 200),
+    company: (prefillCompany || extractCompany(tab.title)).slice(0, 100),
     url: tab.url,
     status: 'saved',
     cvId: null,
@@ -420,6 +428,7 @@ async function saveCurrentJob() {
     syncedAt:  null,   // ISO string — set when synced to cloud (Pro only). null = not synced.
     remindAt:  null,   // ISO string — follow-up reminder date (Pro only). null = no reminder.
   };
+  if (btn) { delete btn.dataset.prefillTitle; delete btn.dataset.prefillCompany; }
   jobs.unshift(job);
   await store.set('jobs', jobs);
   flashButton('save-job-btn', 'Saved ✓', '#1D9E75');
@@ -531,8 +540,14 @@ function renderJobs() {
   const list = document.getElementById('jobs-list');
   if (!list) return;
   const filteredJobs = getFilteredJobs();
+  
+  if (!jobs.length) {
+    list.innerHTML = '<p style="color:#aaa;font-size:12px;text-align:center;padding:20px 0;">No jobs saved yet.<br>Browse a job listing and click \'+ Save this job\'</p>';
+    return;
+  }
+  
   if (!filteredJobs.length) {
-    list.innerHTML = '<p style="color:#aaa;font-size:12px;text-align:center;padding:20px 0;">No jobs match your filters.<br>Try adjusting search or filter criteria.</p>';
+    list.innerHTML = '<p style="color:#aaa;font-size:12px;text-align:center;padding:20px 0;">No jobs match your search. Try adjusting the filter.</p>';
     return;
   }
   list.innerHTML = filteredJobs.map(j => {
