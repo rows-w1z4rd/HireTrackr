@@ -12,16 +12,36 @@ let dragId    = null;
 
 // ── Boot ──────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
-  const data = await chrome.storage.local.get(['jobs', 'cvs']);
-  jobs = data.jobs || [];
-  cvs  = data.cvs  || [];
+  try {
+    const data = await new Promise((resolve, reject) => {
+      chrome.storage.local.get(['jobs', 'cvs'], (d) => {
+        if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+        else resolve(d);
+      });
+    });
+    jobs = data.jobs || [];
+    cvs  = data.cvs  || [];
+  } catch (err) {
+    console.error('Failed to load data:', err);
+    jobs = [];
+    cvs = [];
+  }
   renderAll();
   bindModal();
 });
 
 // ── Persist ───────────────────────────────────────────────────────
 async function persist() {
-  await chrome.storage.local.set({ jobs });
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.set({ jobs }, () => {
+      if (chrome.runtime.lastError) {
+        console.error('Pipeline persist failed:', chrome.runtime.lastError.message);
+        reject(new Error(chrome.runtime.lastError.message));
+      } else {
+        resolve();
+      }
+    });
+  });
 }
 
 // ── Render everything ─────────────────────────────────────────────
@@ -52,7 +72,7 @@ function renderStats() {
   };
   document.getElementById('stats').innerHTML =
     Object.keys(counts).map(k => `
-      <div class="stat-card">
+      <div class="stat-card" data-k="${k}">
         <div class="stat-num ${colors[k]}">${counts[k]}</div>
         <div class="stat-label">${labels[k]}</div>
       </div>`).join('');
@@ -160,6 +180,7 @@ function bindColDrop(col) {
 // ── Edit Modal ────────────────────────────────────────────────────
 function bindModal() {
   document.getElementById('modal-close').addEventListener('click', closeModal);
+  document.getElementById('modal-cancel').addEventListener('click', closeModal);
   document.getElementById('modal-overlay').addEventListener('click', e => {
     if (e.target === e.currentTarget) closeModal();
   });
@@ -175,6 +196,9 @@ function openEditModal(id) {
   const job = jobs.find(j => j.id === id);
   if (!job) return;
   editingId = id;
+
+  // Add this line right after: const job = jobs.find(j => j.id === id);
+  document.getElementById('modal-job-title').textContent = job.title;
 
   document.getElementById('m-title').value   = job.title;
   document.getElementById('m-company').value = job.company;

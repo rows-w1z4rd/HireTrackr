@@ -5,18 +5,38 @@
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
-  <div class="header">
-    <div class="logo">Hire<span>Track</span></div>
-    <div id="job-count" class="count-label">0 jobs saved</div>
+  <div id="onboarding" style="display:none;padding:20px;">
+    <div style="font-size:28px;text-align:center;margin-bottom:12px;">👋</div>
+    <div style="font-weight:600;font-size:14px;margin-bottom:14px;text-align:center;">Welcome to HireTrack</div>
+    <div style="font-size:12px;color:#555;line-height:1.8;margin-bottom:18px;">
+      <div>📌 Browse to any job listing, open this popup, click <strong>+ Save this job</strong></div>
+      <div style="margin-top:6px;">📋 Track every application on the <strong>Kanban pipeline</strong></div>
+      <div style="margin-top:6px;">📁 Store your CVs so you remember which version you used</div>
+      <div style="margin-top:6px;">✉️ Save email templates for follow-ups and applications</div>
+      <div style="margin-top:6px;">💾 All data stays <strong>on your device</strong> — no account, no cloud</div>
+    </div>
+    <div style="margin-top:20px; margin-bottom:15px; text-align:center; font-size:12px; color:#555; border-top: 1px solid #eee; padding-top: 15px;">
+      <strong>Need more help?</strong><br>
+      <a href="mailto:support@hiretrack.com" style="color:#1D9E75; text-decoration:none;">Contact Support</a>
+    </div>
+    <button id="close-help-btn" style="
+      width:100%;background:#1D9E75;color:#fff;border:none;
+      border-radius:8px;padding:11px;font-size:13px;font-weight:500;
+      cursor:pointer;font-family:inherit;">
+      Got it / Close
+    </button>
   </div>
+  <div id="main-app">
+    <div class="header" style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 8px;">
+      <div style="display: flex; align-items: baseline; gap: 8px;">
+        <h1 style="margin:0; font-size: 18px; font-weight: bold;">Hire<span style="color:#1D9E75">Track</span></h1>
+        <span id="job-count" style="color: #888; font-size: 12px; margin: 0;">0 jobs saved</span>
+      </div>
+      <div id="help-icon" title="Help" style="cursor: pointer; font-size: 20px;">🛟</div>
+    </div>
 
   <div style="padding: 8px 16px 0;">
-    <button id="open-pipeline" style="
-      width:100%; background:none; border:0.5px solid #e8e8e8;
-      border-radius:8px; padding:7px; font-size:12px; color:#888;
-      cursor:pointer; font-family:inherit;">
-      Open Pipeline →
-    </button>
+    <button id="open-pipeline">Open Pipeline →</button>
   </div>
 
   <div class="tabs">
@@ -31,8 +51,32 @@
     <!-- JOBS TAB -->
     <div id="tab-jobs" class="tab-panel">
       <button id="save-job-btn" class="btn-primary">+ Save this job</button>
+      <div style="display:flex;gap:6px;margin-bottom:8px;">
+        <input
+          id="job-search"
+          placeholder="Search jobs..."
+          style="flex:1;border:1px solid #eee;border-radius:6px;padding:6px 9px;font-size:12px;font-family:inherit;outline:none;"
+        />
+        <select
+          id="status-filter"
+          style="border:1px solid #eee;border-radius:6px;padding:6px 8px;font-size:12px;font-family:inherit;outline:none;color:#555;background:#fff;"
+        >
+          <option value="">All</option>
+          <option value="saved">Saved</option>
+          <option value="applied">Applied</option>
+          <option value="interview">Interview</option>
+          <option value="offer">Offer</option>
+          <option value="rejected">Rejected</option>
+        </select>
+      </div>
       <div class="section-label">Saved jobs</div>
       <div id="jobs-list"></div>
+      <button id="export-csv-btn" style="
+        width:100%; background:none; border:0.5px solid #e8e8e8;
+        border-radius:8px; padding:7px; font-size:11px; color:#888;
+        cursor:pointer; font-family:inherit; margin-top:8px;">
+        ↓ Export all jobs as CSV
+      </button>
     </div>
 
     <!-- CV VAULT TAB -->
@@ -70,6 +114,8 @@
       </div>
       <div id="modal-body"></div>
     </div>
+  </div>
+
   </div>
 
   <script src="../jobDetection.js"></script>

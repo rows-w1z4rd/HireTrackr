@@ -1,5 +1,19 @@
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { width: 360px; min-height: 480px; font-family: -apple-system, sans-serif; font-size: 13px; color: #1a1a1a; background: #fff; }
+* {
+  box-sizing: border-box !important;
+}
+html, body {
+  width: 400px !important;
+  min-width: 400px !important;
+  max-width: 400px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  font-family: -apple-system, sans-serif;
+  font-size: 13px;
+  color: #1a1a1a;
+  background: #fff;
+  min-height: 480px;
+}
 
 .header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px 0; }
 .logo { font-size: 15px; font-weight: 600; }
@@ -10,12 +24,19 @@ body { width: 360px; min-height: 480px; font-family: -apple-system, sans-serif; 
 .tab { background: none; border: none; padding: 6px 10px; font-size: 12px; cursor: pointer; color: #888; border-radius: 6px 6px 0 0; font-family: inherit; }
 .tab.active { color: #1a1a1a; font-weight: 600; border-bottom: 2px solid #1D9E75; }
 
-.content { padding: 12px 16px 16px; }
+.content { 
+  padding: 12px 16px 16px; 
+  height: 380px; /* Lock the height so it doesn't collapse */
+  overflow-y: scroll !important; /* Force the scrollbar track to ALWAYS be visible */
+  overflow-x: hidden !important;
+  width: 100%;
+  box-sizing: border-box;
+}
 .tab-panel.hidden { display: none; }
 
 .btn-primary { width: 100%; background: #1D9E75; color: #fff; border: none; border-radius: 8px; padding: 9px; font-size: 13px; font-weight: 500; cursor: pointer; margin-bottom: 12px; font-family: inherit; }
 .btn-primary:hover { background: #0F6E56; }
-.upload-label { display: block; cursor: pointer; }
+.upload-label { display: flex; justify-content: center; align-items: center; text-align: center; cursor: pointer; }
 
 .section-label { font-size: 10px; font-weight: 600; color: #aaa; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 8px; }
 
@@ -63,4 +84,34 @@ body { width: 360px; min-height: 480px; font-family: -apple-system, sans-serif; 
 .field input, .field select, .field textarea { width: 100%; border: 1px solid #eee; border-radius: 6px; padding: 7px 9px; font-size: 12px; font-family: inherit; outline: none; }
 .field input:focus, .field select:focus, .field textarea:focus { border-color: #1D9E75; }
 .field textarea { resize: vertical; min-height: 70px; }
+#open-pipeline {
+    width: 100%; 
+    background-color: #f0fdf4; 
+    border: 2px solid #1D9E75 !important; 
+    color: #1D9E75 !important; 
+    font-weight: 600; 
+    border-radius: 6px; 
+    box-shadow: 0 2px 4px rgba(29, 158, 117, 0.1); 
+    transition: all 0.2s ease;
+    padding: 7px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+}
 .modal-save { width: 100%; margin-top: 4px; }
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f9f9f9; 
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb {
+  background: #1D9E75; 
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #147a5a; 
+}

@@ -18,10 +18,31 @@
   },
   "content_scripts": [
     {
-      "matches": ["*://*.linkedin.com/*", "*://*.indeed.com/*", "*://*.greenhouse.io/*", "*://*.lever.co/*"],
-      "js": ["content/content.js"]
+      "matches": [
+        "*://*.linkedin.com/jobs/*",
+        "*://*.indeed.com/viewjob*",
+        "*://*.indeed.com/job/*",
+        "*://*.greenhouse.io/*",
+        "*://*.lever.co/*",
+        "*://*.glassdoor.com/job-listing/*",
+        "*://*.glassdoor.com/Jobs/*",
+        "*://*.rekrute.com/*",
+        "*://*.bayt.com/en/*",
+        "*://*.wuzzuf.net/jobs/*",
+        "*://*.akhtaboot.com/*",
+        "*://*.emploi.ma/*",
+        "*://*.myworkday.com/*/job/*",
+        "*://boards.greenhouse.io/*",
+        "*://jobs.lever.co/*",
+        "*://*.ashbyhq.com/*"
+      ],
+      "js": ["content/content.js"],
+      "run_at": "document_idle"
     }
   ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none'; base-uri 'none';"
+  },
   "background": {
     "service_worker": "background/background.js"
   }
