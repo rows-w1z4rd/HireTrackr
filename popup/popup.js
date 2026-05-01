@@ -200,20 +200,42 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Listen for job data extracted by content.js
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-    // Only accept messages from our own content scripts (sender.tab exists for content scripts)
-    if (!sender.tab) return;
+    // Only accept messages from our own content scripts
+    // Verify sender has a tab (content script) and valid origin
+    if (!sender.tab || !sender.url) return;
+    
+    // Additional security: verify the sender is from a known job board domain
+    try {
+      const senderUrl = new URL(sender.url);
+      const knownJobBoards = [
+        'linkedin.com', 'indeed.com', 'greenhouse.io', 'lever.co', 'glassdoor.com',
+        'rekrute.com', 'bayt.com', 'wuzzuf.net', 'akhtaboot.com', 'emploi.ma',
+        'myworkday.com', 'ashbyhq.com'
+      ];
+      
+      // Check if sender URL contains any known job board domain
+      const isKnownJobBoard = knownJobBoards.some(board => 
+        senderUrl.hostname.includes(board) || senderUrl.hostname.endsWith('.' + board)
+      );
+      
+      if (!isKnownJobBoard) return;
+    } catch (e) {
+      // Invalid URL, reject message
+      return;
+    }
 
-    if (msg.type === 'JOB_DATA') {
-      // Validate fields exist and are strings before using them
-      const title   = typeof msg.title   === 'string' ? msg.title.trim().slice(0, 200)   : '';
-      const company = typeof msg.company === 'string' ? msg.company.trim().slice(0, 100) : '';
+    // Validate message structure
+    if (!msg || typeof msg !== 'object' || msg.type !== 'JOB_DATA') return;
+    
+    // Validate fields exist and are strings before using them
+    const title   = typeof msg.title   === 'string' ? msg.title.trim().slice(0, 200)   : '';
+    const company = typeof msg.company === 'string' ? msg.company.trim().slice(0, 100) : '';
 
-      // Pre-fill the save form if data arrives (optional enhancement for content.js)
-      if (title) {
-        const btn = document.getElementById('save-job-btn');
-        if (btn) btn.dataset.prefillTitle   = title;
-        if (btn) btn.dataset.prefillCompany = company;
-      }
+    // Pre-fill the save form if data arrives (optional enhancement for content.js)
+    if (title) {
+      const btn = document.getElementById('save-job-btn');
+      if (btn) btn.dataset.prefillTitle   = title;
+      if (btn) btn.dataset.prefillCompany = company;
     }
   });
 });
@@ -257,6 +279,102 @@ function bindButtons() {
     ?.addEventListener('change', renderJobs);
   document.getElementById('export-csv-btn')
     ?.addEventListener('click', exportJobsCSV);
+  
+  // Event delegation for job cards - prevents memory leaks
+  const jobsList = document.getElementById('jobs-list');
+  if (jobsList) {
+    jobsList.addEventListener('click', (e) => {
+      const jobCard = e.target.closest('.job-card');
+      if (jobCard && jobCard.dataset.id) {
+        openJobModal(jobCard.dataset.id);
+      }
+    });
+  }
+  
+  // Event delegation for CV actions - prevents memory leaks
+  const cvsList = document.getElementById('cvs-list');
+  if (cvsList) {
+    cvsList.addEventListener('click', async (e) => {
+      const copyBtn = e.target.closest('[data-copy]');
+      const delBtn = e.target.closest('[data-del]');
+      
+      if (copyBtn) {
+        const cv = cvs.find(c => c.id === copyBtn.dataset.copy);
+        if (cv) {
+          navigator.clipboard.writeText(`CV: ${cv.name}\nFile: ${cv.filename}`);
+          const originalText = copyBtn.textContent;
+          copyBtn.textContent = 'Copied!';
+          setTimeout(() => {
+            copyBtn.textContent = originalText;
+          }, 1500);
+        }
+      } else if (delBtn) {
+        const id = delBtn.dataset.del;
+        await deleteCVBlob(id).catch(e => console.error('Blob delete failed:', e));
+        cvs = cvs.filter(c => c.id !== id);
+        await store.set('cvs', cvs);
+        renderCVs();
+      }
+    });
+  }
+  
+  // Event delegation for templates - prevents memory leaks
+  const templatesList = document.getElementById('templates-list');
+  if (templatesList) {
+    templatesList.addEventListener('click', async (e) => {
+      const copyBtn = e.target.closest('[data-copy-t]');
+      const editBtn = e.target.closest('[data-edit-t]');
+      const delBtn = e.target.closest('[data-del-t]');
+      
+      if (copyBtn) {
+        const t = templates.find(x => x.id === copyBtn.dataset.copyT);
+        if (t) {
+          navigator.clipboard.writeText(`Subject: ${t.subject}\n\n${t.body}`);
+          const originalText = copyBtn.textContent;
+          copyBtn.textContent = 'Copied!';
+          setTimeout(() => {
+            copyBtn.textContent = originalText;
+          }, 1500);
+        }
+      } else if (editBtn) {
+        const template = templates.find(x => x.id === editBtn.dataset.editT);
+        if (template) openModal('template', template);
+      } else if (delBtn) {
+        templates = templates.filter(x => x.id !== delBtn.dataset.delT);
+        await store.set('templates', templates);
+        renderTemplates();
+      }
+    });
+  }
+  
+  // Event delegation for snippets - prevents memory leaks
+  const snippetsList = document.getElementById('snippets-list');
+  if (snippetsList) {
+    snippetsList.addEventListener('click', async (e) => {
+      const copyBtn = e.target.closest('[data-copy-s]');
+      const editBtn = e.target.closest('[data-edit-s]');
+      const delBtn = e.target.closest('[data-del-s]');
+      
+      if (copyBtn) {
+        const s = snippets.find(x => x.id === copyBtn.dataset.copyS);
+        if (s) {
+          navigator.clipboard.writeText(s.content);
+          const originalText = copyBtn.textContent;
+          copyBtn.textContent = 'Copied!';
+          setTimeout(() => {
+            copyBtn.textContent = originalText;
+          }, 1500);
+        }
+      } else if (editBtn) {
+        const snippet = snippets.find(x => x.id === editBtn.dataset.editS);
+        if (snippet) openModal('snippet', snippet);
+      } else if (delBtn) {
+        snippets = snippets.filter(x => x.id !== delBtn.dataset.delS);
+        await store.set('snippets', snippets);
+        renderSnippets();
+      }
+    });
+  }
 }
 
 // ── SAVE JOB ──────────────────────────────────────────────────────
@@ -388,9 +506,8 @@ function renderJobs() {
         </div>
       </div>`;
   }).join('');
-  list.querySelectorAll('.job-card').forEach(card => {
-    card.addEventListener('click', () => openJobModal(card.dataset.id));
-  });
+  // Event delegation - single listener handles all job card clicks
+  // This prevents memory leaks from accumulating event listeners
 }
 
 // ── JOB MODAL ────────────────────────────────────────────────────
@@ -399,30 +516,149 @@ function openJobModal(id) {
   if (!job) return;
   editingJobId = id;
   document.getElementById('modal-title').textContent = job.title;
-  document.getElementById('modal-body').innerHTML = `
-    <div class="field"><label>Status</label>
-      <select id="m-status">
-        ${['saved','applied','interview','offer','rejected'].map(s =>
-          `<option value="${s}" ${job.status===s?'selected':''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`
-        ).join('')}
-      </select></div>
-    <div class="field"><label>CV Used</label>
-      <select id="m-cv">
-        <option value="">None</option>
-        ${cvs.map(c => `<option value="${c.id}" ${job.cvId===c.id?'selected':''}>${escHtml(c.name)}</option>`).join('')}
-      </select></div>
-    <div class="field"><label>Emailed recruiter?</label>
-      <select id="m-emailed">
-        <option value="false" ${!job.emailed?'selected':''}>No</option>
-        <option value="true" ${job.emailed?'selected':''}>Yes</option>
-      </select></div>
-    <div class="field"><label>Notes</label>
-      <textarea id="m-notes" placeholder="Interview notes, salary, contact...">${escHtml(job.notes)}</textarea></div>
-    <div class="field"><label>Link</label>
-      <input id="m-url" value="${escHtml(job.url)}" readonly style="color:#888;" /></div>
-    <button class="btn-primary modal-save" id="save-job-modal">Save changes</button>
-    <button class="btn-sm btn-danger" id="delete-job" style="width:100%;margin-top:6px;">Delete job</button>
-  `;
+  
+  // Clear modal body safely
+  const modalBody = document.getElementById('modal-body');
+  modalBody.innerHTML = '';
+  
+  // Create title field
+  const titleField = document.createElement('div');
+  titleField.className = 'field';
+  const titleLabel = document.createElement('label');
+  titleLabel.textContent = 'Job Title';
+  titleField.appendChild(titleLabel);
+  
+  const titleInput = document.createElement('input');
+  titleInput.id = 'm-title';
+  titleInput.value = job.title;
+  titleField.appendChild(titleInput);
+  modalBody.appendChild(titleField);
+  
+  // Create company field
+  const companyField = document.createElement('div');
+  companyField.className = 'field';
+  const companyLabel = document.createElement('label');
+  companyLabel.textContent = 'Company';
+  companyField.appendChild(companyLabel);
+  
+  const companyInput = document.createElement('input');
+  companyInput.id = 'm-company';
+  companyInput.value = job.company;
+  companyField.appendChild(companyInput);
+  modalBody.appendChild(companyField);
+  
+  // Create status field
+  const statusField = document.createElement('div');
+  statusField.className = 'field';
+  const statusLabel = document.createElement('label');
+  statusLabel.textContent = 'Status';
+  statusField.appendChild(statusLabel);
+  
+  const statusSelect = document.createElement('select');
+  statusSelect.id = 'm-status';
+  ['saved','applied','interview','offer','rejected'].forEach(s => {
+    const option = document.createElement('option');
+    option.value = s;
+    option.textContent = s.charAt(0).toUpperCase() + s.slice(1);
+    if (job.status === s) option.selected = true;
+    statusSelect.appendChild(option);
+  });
+  statusField.appendChild(statusSelect);
+  modalBody.appendChild(statusField);
+  
+  // Create CV field
+  const cvField = document.createElement('div');
+  cvField.className = 'field';
+  const cvLabel = document.createElement('label');
+  cvLabel.textContent = 'CV Used';
+  cvField.appendChild(cvLabel);
+  
+  const cvSelect = document.createElement('select');
+  cvSelect.id = 'm-cv';
+  const noneOption = document.createElement('option');
+  noneOption.value = '';
+  noneOption.textContent = 'None';
+  cvSelect.appendChild(noneOption);
+  
+  cvs.forEach(c => {
+    const option = document.createElement('option');
+    option.value = c.id;
+    option.textContent = c.name; // Safe: textContent automatically escapes
+    if (job.cvId === c.id) option.selected = true;
+    cvSelect.appendChild(option);
+  });
+  cvField.appendChild(cvSelect);
+  modalBody.appendChild(cvField);
+  
+  // Create emailed field
+  const emailedField = document.createElement('div');
+  emailedField.className = 'field';
+  const emailedLabel = document.createElement('label');
+  emailedLabel.textContent = 'Emailed recruiter?';
+  emailedField.appendChild(emailedLabel);
+  
+  const emailedSelect = document.createElement('select');
+  emailedSelect.id = 'm-emailed';
+  const noOption = document.createElement('option');
+  noOption.value = 'false';
+  noOption.textContent = 'No';
+  if (!job.emailed) noOption.selected = true;
+  emailedSelect.appendChild(noOption);
+  
+  const yesOption = document.createElement('option');
+  yesOption.value = 'true';
+  yesOption.textContent = 'Yes';
+  if (job.emailed) yesOption.selected = true;
+  emailedSelect.appendChild(yesOption);
+  emailedField.appendChild(emailedSelect);
+  modalBody.appendChild(emailedField);
+  
+  // Create notes field
+  const notesField = document.createElement('div');
+  notesField.className = 'field';
+  const notesLabel = document.createElement('label');
+  notesLabel.textContent = 'Notes';
+  notesField.appendChild(notesLabel);
+  
+  const notesTextarea = document.createElement('textarea');
+  notesTextarea.id = 'm-notes';
+  notesTextarea.placeholder = 'Interview notes, salary, contact...';
+  notesTextarea.value = job.notes; // Safe: textarea value automatically escapes
+  notesField.appendChild(notesTextarea);
+  modalBody.appendChild(notesField);
+  
+  // Create URL field
+  const urlField = document.createElement('div');
+  urlField.className = 'field';
+  const urlLabel = document.createElement('label');
+  urlLabel.textContent = 'Link';
+  urlField.appendChild(urlLabel);
+  
+  const urlInput = document.createElement('input');
+  urlInput.id = 'm-url';
+  urlInput.value = job.url; // Safe: input value automatically escapes
+  urlInput.readOnly = true;
+  urlInput.style.color = '#888';
+  urlField.appendChild(urlInput);
+  modalBody.appendChild(urlField);
+  
+  // Create save button
+  const saveBtn = document.createElement('button');
+  saveBtn.className = 'btn-primary modal-save';
+  saveBtn.id = 'save-job-modal';
+  saveBtn.textContent = 'Save changes';
+  modalBody.appendChild(saveBtn);
+  
+  // Create delete button
+  const deleteBtn = document.createElement('button');
+  deleteBtn.className = 'btn-sm btn-danger';
+  deleteBtn.id = 'delete-job';
+  deleteBtn.textContent = 'Delete job';
+  deleteBtn.style.width = '100%';
+  deleteBtn.style.marginTop = '6px';
+  modalBody.appendChild(deleteBtn);
+  
+  // Add event listeners
   document.getElementById('save-job-modal').addEventListener('click', saveJobModal);
   document.getElementById('delete-job').addEventListener('click', deleteJob);
   document.getElementById('job-modal').classList.remove('hidden');
@@ -453,6 +689,39 @@ async function deleteJob() {
 async function handleCVUpload(e) {
   const file = e.target.files[0];
   if (!file) return;
+
+  // File validation - 5MB limit and allowed MIME types
+  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+  const ALLOWED_MIME_TYPES = [
+    'application/pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+    'application/msword', // .doc
+    'text/plain', // .txt
+    'application/rtf' // .rtf
+  ];
+
+  // Check file size
+  if (file.size > MAX_FILE_SIZE) {
+    alert('File size exceeds 5MB limit. Please choose a smaller file.');
+    e.target.value = '';
+    return;
+  }
+
+  // Check MIME type
+  if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+    alert('Invalid file type. Please upload a PDF, Word document, or text file.');
+    e.target.value = '';
+    return;
+  }
+
+  // Additional validation: check file extension matches MIME type
+  const allowedExtensions = ['.pdf', '.docx', '.doc', '.txt', '.rtf'];
+  const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+  if (!allowedExtensions.includes(fileExtension)) {
+    alert('Invalid file extension. Please upload a PDF, Word document, or text file.');
+    e.target.value = '';
+    return;
+  }
 
   const name = prompt('Label this CV (e.g. "Frontend CV", "General CV"):', file.name.replace(/\.[^.]+$/, ''));
   if (!name) return;
@@ -493,23 +762,7 @@ function renderCVs() {
         <button class="btn-sm btn-danger" data-del="${c.id}">✕</button>
       </div>
     </div>`).join('');
-  list.querySelectorAll('[data-copy]').forEach(btn =>
-    btn.addEventListener('click', () => {
-      const cv = cvs.find(c => c.id === btn.dataset.copy);
-      navigator.clipboard.writeText(`CV: ${cv.name}\nFile: ${cv.filename}`);
-      btn.textContent = 'Copied!';
-      setTimeout(() => btn.textContent = 'Copy', 1500);
-    })
-  );
-  list.querySelectorAll('[data-del]').forEach(btn =>
-    btn.addEventListener('click', async () => {
-      const id = btn.dataset.del;
-      await deleteCVBlob(id).catch(e => console.error('Blob delete failed:', e));
-      cvs = cvs.filter(c => c.id !== id);
-      await store.set('cvs', cvs);
-      renderCVs();
-    })
-  );
+  // Event delegation handled in bindButtons - prevents memory leaks
 }
 
 // ── EMAIL TEMPLATES ───────────────────────────────────────────────
@@ -518,22 +771,103 @@ function openModal(type, existing = null) {
   document.getElementById('modal-title').textContent =
     existing ? `Edit ${type}` : `New ${isTemplate ? 'email template' : 'snippet'}`;
 
-  document.getElementById('modal-body').innerHTML = isTemplate ? `
-    <div class="field"><label>Template name</label>
-      <input id="t-name" placeholder="e.g. Follow-up email" value="${existing?.name||''}" /></div>
-    <div class="field"><label>Subject line</label>
-      <input id="t-subject" placeholder="Re: Application for {{role}}" value="${existing?.subject||''}" /></div>
-    <div class="field"><label>Body</label>
-      <textarea id="t-body" placeholder="Hi {{name}},\n\nI wanted to follow up...">${existing?.body||''}</textarea></div>
-    <p style="font-size:10px;color:#aaa;margin-bottom:10px;">Use {{company}}, {{role}}, {{name}} as placeholders.</p>
-    <button class="btn-primary" id="modal-save-btn">Save template</button>
-  ` : `
-    <div class="field"><label>Label</label>
-      <input id="s-label" placeholder="e.g. My bio, Core skills" value="${existing?.label||''}" /></div>
-    <div class="field"><label>Content</label>
-      <textarea id="s-content" placeholder="Paste your reusable text here...">${existing?.content||''}</textarea></div>
-    <button class="btn-primary" id="modal-save-btn">Save snippet</button>
-  `;
+  // Clear modal body safely
+  const modalBody = document.getElementById('modal-body');
+  modalBody.innerHTML = '';
+
+  if (isTemplate) {
+    // Template name field
+    const nameField = document.createElement('div');
+    nameField.className = 'field';
+    const nameLabel = document.createElement('label');
+    nameLabel.textContent = 'Template name';
+    nameField.appendChild(nameLabel);
+    
+    const nameInput = document.createElement('input');
+    nameInput.id = 't-name';
+    nameInput.placeholder = 'e.g. Follow-up email';
+    nameInput.value = existing?.name || '';
+    nameField.appendChild(nameInput);
+    modalBody.appendChild(nameField);
+
+    // Subject field
+    const subjectField = document.createElement('div');
+    subjectField.className = 'field';
+    const subjectLabel = document.createElement('label');
+    subjectLabel.textContent = 'Subject line';
+    subjectField.appendChild(subjectLabel);
+    
+    const subjectInput = document.createElement('input');
+    subjectInput.id = 't-subject';
+    subjectInput.placeholder = 'Re: Application for {{role}}';
+    subjectInput.value = existing?.subject || '';
+    subjectField.appendChild(subjectInput);
+    modalBody.appendChild(subjectField);
+
+    // Body field
+    const bodyField = document.createElement('div');
+    bodyField.className = 'field';
+    const bodyLabel = document.createElement('label');
+    bodyLabel.textContent = 'Body';
+    bodyField.appendChild(bodyLabel);
+    
+    const bodyTextarea = document.createElement('textarea');
+    bodyTextarea.id = 't-body';
+    bodyTextarea.placeholder = 'Hi {{name}},\n\nI wanted to follow up...';
+    bodyTextarea.value = existing?.body || '';
+    bodyField.appendChild(bodyTextarea);
+    modalBody.appendChild(bodyField);
+
+    // Help text
+    const helpText = document.createElement('p');
+    helpText.style.fontSize = '10px';
+    helpText.style.color = '#aaa';
+    helpText.style.marginBottom = '10px';
+    helpText.textContent = 'Use {{company}}, {{role}}, {{name}} as placeholders.';
+    modalBody.appendChild(helpText);
+
+    // Save button
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'btn-primary';
+    saveBtn.id = 'modal-save-btn';
+    saveBtn.textContent = 'Save template';
+    modalBody.appendChild(saveBtn);
+  } else {
+    // Snippet label field
+    const labelField = document.createElement('div');
+    labelField.className = 'field';
+    const labelLabel = document.createElement('label');
+    labelLabel.textContent = 'Label';
+    labelField.appendChild(labelLabel);
+    
+    const labelInput = document.createElement('input');
+    labelInput.id = 's-label';
+    labelInput.placeholder = 'e.g. My bio, Core skills';
+    labelInput.value = existing?.label || '';
+    labelField.appendChild(labelInput);
+    modalBody.appendChild(labelField);
+
+    // Content field
+    const contentField = document.createElement('div');
+    contentField.className = 'field';
+    const contentLabel = document.createElement('label');
+    contentLabel.textContent = 'Content';
+    contentField.appendChild(contentLabel);
+    
+    const contentTextarea = document.createElement('textarea');
+    contentTextarea.id = 's-content';
+    contentTextarea.placeholder = 'Paste your reusable text here...';
+    contentTextarea.value = existing?.content || '';
+    contentField.appendChild(contentTextarea);
+    modalBody.appendChild(contentField);
+
+    // Save button
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'btn-primary';
+    saveBtn.id = 'modal-save-btn';
+    saveBtn.textContent = 'Save snippet';
+    modalBody.appendChild(saveBtn);
+  }
 
   document.getElementById('modal-save-btn').addEventListener('click', () =>
     isTemplate ? saveTemplate(existing?.id) : saveSnippet(existing?.id)
@@ -571,20 +905,7 @@ function renderTemplates() {
         <button class="btn-sm btn-danger" data-del-t="${t.id}">✕</button>
       </div>
     </div>`).join('');
-  list.querySelectorAll('[data-copy-t]').forEach(b => b.addEventListener('click', () => {
-    const t = templates.find(x => x.id === b.dataset.copyT);
-    navigator.clipboard.writeText(`Subject: ${t.subject}\n\n${t.body}`);
-    b.textContent = 'Copied!';
-    setTimeout(() => b.textContent = 'Copy', 1500);
-  }));
-  list.querySelectorAll('[data-edit-t]').forEach(b => b.addEventListener('click', () =>
-    openModal('template', templates.find(x => x.id === b.dataset.editT))
-  ));
-  list.querySelectorAll('[data-del-t]').forEach(b => b.addEventListener('click', async () => {
-    templates = templates.filter(x => x.id !== b.dataset.delT);
-    await store.set('templates', templates);
-    renderTemplates();
-  }));
+  // Event delegation handled in bindButtons - prevents memory leaks
 }
 
 // ── SNIPPETS ──────────────────────────────────────────────────────
@@ -617,19 +938,7 @@ function renderSnippets() {
         <button class="btn-sm btn-danger" data-del-s="${s.id}">✕</button>
       </div>
     </div>`).join('');
-  list.querySelectorAll('[data-copy-s]').forEach(b => b.addEventListener('click', () => {
-    navigator.clipboard.writeText(snippets.find(x => x.id === b.dataset.copyS).content);
-    b.textContent = 'Copied!';
-    setTimeout(() => b.textContent = 'Copy', 1500);
-  }));
-  list.querySelectorAll('[data-edit-s]').forEach(b => b.addEventListener('click', () =>
-    openModal('snippet', snippets.find(x => x.id === b.dataset.editS))
-  ));
-  list.querySelectorAll('[data-del-s]').forEach(b => b.addEventListener('click', async () => {
-    snippets = snippets.filter(x => x.id !== b.dataset.delS);
-    await store.set('snippets', snippets);
-    renderSnippets();
-  }));
+  // Event delegation handled in bindButtons - prevents memory leaks
 }
 
 // ── UTILS ─────────────────────────────────────────────────────────
