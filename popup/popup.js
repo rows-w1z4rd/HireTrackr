@@ -811,18 +811,69 @@ async function handleCVUpload(e) {
 function renderCVs() {
   const list = document.getElementById('cvs-list');
   if (!list) return;
+  list.innerHTML = '';
+  
   if (!cvs.length) {
-    list.innerHTML = '<p style="color:#aaa;font-size:12px;text-align:center;padding:20px 0;">No CVs uploaded yet.</p>';
+    const emptyMsg = document.createElement('p');
+    emptyMsg.style.cssText = 'color:#aaa;font-size:12px;text-align:center;padding:20px 0;';
+    emptyMsg.textContent = 'No CVs uploaded yet.';
+    list.appendChild(emptyMsg);
     return;
   }
-  list.innerHTML = cvs.map(c => `
-    <div class="cv-card">
-      <div><div class="cv-name">${escHtml(c.name)}</div><div class="cv-type">${escHtml(c.filename)}</div></div>
-      <div class="cv-actions">
-        <button class="btn-sm" data-copy="${c.id}">Copy</button>
-        <button class="btn-sm btn-danger" data-del="${c.id}">✕</button>
-      </div>
-    </div>`).join('');
+  
+  cvs.forEach(c => {
+    const card = document.createElement('div');
+    card.className = 'cv-card';
+    
+    const infoDiv = document.createElement('div');
+    const nameDiv = document.createElement('div');
+    nameDiv.className = 'cv-name';
+    nameDiv.textContent = c.name;
+    const typeDiv = document.createElement('div');
+    typeDiv.className = 'cv-type';
+    typeDiv.textContent = c.filename;
+    infoDiv.appendChild(nameDiv);
+    infoDiv.appendChild(typeDiv);
+    
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = 'cv-actions';
+    
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'btn-sm';
+    copyBtn.dataset.copy = c.id;
+    copyBtn.textContent = 'Copy';
+    
+    const previewBtn = document.createElement('button');
+    previewBtn.className = 'btn-sm btn-preview';
+    previewBtn.dataset.preview = c.id;
+    previewBtn.textContent = 'Preview';
+    previewBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      try {
+        const blob = await getCVBlob(c.id);
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          window.open(url, '_blank');
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+      } catch (err) {
+        alert('Failed to preview CV. Please try again.');
+      }
+    });
+    
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'btn-sm btn-danger';
+    deleteBtn.dataset.del = c.id;
+    deleteBtn.textContent = '✕';
+    
+    actionsDiv.appendChild(copyBtn);
+    actionsDiv.appendChild(previewBtn);
+    actionsDiv.appendChild(deleteBtn);
+    
+    card.appendChild(infoDiv);
+    card.appendChild(actionsDiv);
+    list.appendChild(card);
+  });
   // Event delegation handled in bindButtons - prevents memory leaks
 }
 
