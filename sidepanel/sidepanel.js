@@ -764,19 +764,40 @@ async function inPage(tabId, fn, args = [], frameIds = null) {
   return chrome.scripting.executeScript({ target, func: fn, args });
 }
 
+// Chrome's own pages (new tab, settings, the Web Store) are closed to every extension.
+// Says so and returns null there; otherwise returns the tab.
+async function webPageTab() {
+  const tab = await activeTab();
+  if (/^https?:/.test(tab?.url || '')) return tab;
+  toast('Chrome doesn\'t let extensions work on this page. Open the application page first.', 'error');
+  return null;
+}
+
+// Shows Chrome's permission box. Must be called straight from a click.
+// Resolves to true once access is granted, and says why when it isn't.
+function requestApplyPermission() {
+  return chrome.permissions.request(ALL_SITES).then(granted => {
+    if (!granted) toast('Not turned on. Chrome shows its own box for this: press Allow there.', 'error');
+    return granted;
+  }, err => {
+    toast(`Chrome refused the request: ${err.message}`, 'error');
+    return false;
+  });
+}
+
 // Asks once for permission to act on the pages the user applies on.
 async function ensureApplyPermission() {
   if (applyEnabled) return true;
   let request = null;
   const go = await ask({
     title: 'Let HireTrackr work on this page?',
-    message: 'To type your details and attach your CV, HireTrackr needs your permission to act on the sites you apply on. It only does so when you press Autofill or Attach, or drop a CV. Chrome will ask you to confirm.',
+    message: 'To type your details and attach your CV, HireTrackr needs your permission to act on the sites you apply on. It only does so when you press Autofill or Attach, or drop a CV. Chrome will now show its own box: press Allow.',
     okLabel: 'Continue',
-    // must start inside the click, or Chrome refuses to show its prompt
-    onOk: () => { request = chrome.permissions.request(ALL_SITES); },
+    // must start inside the click, or Chrome refuses to show its box
+    onOk: () => { request = requestApplyPermission(); },
   });
   if (!go) return false;
-  applyEnabled = await request.catch(() => false);
+  applyEnabled = await request;
   renderSettings();
   return applyEnabled;
 }
@@ -787,10 +808,10 @@ async function autofillPage() {
     toast('Fill in your profile first');
     return;
   }
-  if (!await ensureApplyPermission()) return;
+  const tab = await webPageTab();
+  if (!tab || !await ensureApplyPermission()) return;
 
   try {
-    const tab = await activeTab();
     const frames = await inPage(tab.id, p => globalThis.__hiretrackr.fill(p), [profile]);
     const filled = frames.reduce((sum, f) => sum + (f.result || 0), 0);
     toast(filled ? `Filled ${filled} field${filled !== 1 ? 's' : ''}` : 'No empty fields to fill on this page');
@@ -815,13 +836,13 @@ async function cvPayload(id) {
 
 // "Attach" button: finds the page's CV upload field and puts the file in it
 async function attachCV(id) {
-  if (!await ensureApplyPermission()) return;
+  const tab = await webPageTab();
+  if (!tab || !await ensureApplyPermission()) return;
 
   try {
     const data = await cvPayload(id);
     if (!data) { toast('Couldn\'t read that CV', 'error'); return; }
 
-    const tab = await activeTab();
     const scans = await inPage(tab.id, f => globalThis.__hiretrackr.scanUpload(f), [{ name: data.name, type: data.type }]);
     const best = scans.reduce((a, b) => (b.result || 0) > (a?.result || 0) ? b : a, null);
     if (!best) {
@@ -852,10 +873,13 @@ function onCVDragStart(e, id, card) {
 
   const drag = { id, tabId: null, until: Infinity, ready: null };
   drag.ready = (async () => {
-    const tab = await activeTab();
+    const tab = await webPageTab();
+    if (!tab) return;
     drag.tabId = tab.id;
     await inPage(tab.id, () => globalThis.__hiretrackr.dragStart());
-  })().catch(() => {});   // restricted page: the drop simply isn't accepted
+  })().catch(() => {
+    toast('HireTrackr can\'t drop a CV on this page', 'error');
+  });
   draggedCV = drag;
 }
 
@@ -955,7 +979,7 @@ async function setOpenAs(openAs) {
 async function toggleApplyPermission() {
   // called straight from the click, so Chrome will show its prompt
   if (applyEnabled) await chrome.permissions.remove(ALL_SITES).catch(() => {});
-  else await chrome.permissions.request(ALL_SITES).catch(() => {});
+  else await requestApplyPermission();
   applyEnabled = await chrome.permissions.contains(ALL_SITES).catch(() => false);
   renderSettings();
 }

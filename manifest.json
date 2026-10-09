@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "HireTrackr",
-  "version": "1.0",
+  "version": "1.1",
   "description": "Track jobs, manage CVs, and write emails — all from your browser.",
   "minimum_chrome_version": "123",
   "icons": {
