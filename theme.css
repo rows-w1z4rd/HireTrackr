@@ -1,0 +1,201 @@
+/* ── HireTrackr theme ───────────────────────────────────────────────
+   Shared by the side panel and the pipeline page.
+   System font, neutral surfaces, one deep green (the logo's), light + dark.
+   Dark is near-black with quiet, desaturated colours — nothing neon. */
+
+:root {
+  /* Every colour below is written as light-dark(light, dark). Which side is
+     used follows the system, unless the user picked one in Settings:
+     theme.js then sets data-theme on <html>. */
+  color-scheme: light dark;
+
+  --bg:        light-dark(#f5f5f7, #0b0b0c);
+  --surface:   light-dark(#ffffff, #1a1a1c);
+  --fill:      light-dark(rgba(118, 118, 128, 0.12), rgba(255, 255, 255, 0.07));   /* inputs, segmented track */
+  --fill-2:    light-dark(rgba(118, 118, 128, 0.20), rgba(255, 255, 255, 0.12));
+  --well:      light-dark(rgba(118, 118, 128, 0.12), rgba(255, 255, 255, 0.035));   /* a recessed area that holds cards */
+  --hairline:  light-dark(rgba(0, 0, 0, 0.09), rgba(255, 255, 255, 0.08));
+  --scrim:     light-dark(rgba(0, 0, 0, 0.32), rgba(0, 0, 0, 0.65));
+
+  --text:      light-dark(#1d1d1f, #ececee);
+  --text-2:    light-dark(#6e6e73, #9b9ba1);
+  --text-3:    light-dark(#86868b, #808086);
+
+  /* --accent is the logo green and only ever sits behind white text.
+     Green used AS text needs a lighter shade on dark: that is --accent-text. */
+  --accent:       #1a7f55;
+  --accent-press: light-dark(#146644, #1f8f61);
+  --accent-text:  light-dark(#1a7f55, #57b98d);
+  --accent-tint:  light-dark(rgba(26, 127, 85, 0.10), rgba(87, 185, 141, 0.14));
+  --on-accent:    #ffffff;
+
+  --gray:   light-dark(#6e6e73, #9b9ba1);
+  --blue:   light-dark(#0062c4, #6ea8e6);
+  --orange: light-dark(#b25000, #d9a25a);
+  --green:  var(--accent-text);
+  --red:    light-dark(#c41d2c, #e0736c);
+
+  --radius:    12px;
+  --radius-sm: 8px;
+  /* light: a soft drop shadow. dark: shadows don't show on black, so a faint edge instead */
+  --shadow:    0 1px 2px light-dark(rgba(0, 0, 0, 0.04), transparent), 0 2px 10px light-dark(rgba(0, 0, 0, 0.05), transparent), 0 0 0 1px light-dark(transparent, rgba(255, 255, 255, 0.06));
+  --shadow-lg: 0 12px 40px light-dark(rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.60)), 0 0 0 1px light-dark(transparent, rgba(255, 255, 255, 0.08));
+
+  --font: system-ui, -apple-system, "Segoe UI Variable Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --ease: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"]  { color-scheme: dark; }
+
+@media (prefers-contrast: more) {
+  :root { --hairline: currentColor; --text-2: var(--text); --text-3: var(--text); }
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html { font-size: 100%; }
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, p { margin: 0; }
+
+/* ── Text ─────────────────────────────────────────────────────────── */
+
+.wordmark { font-size: 1.0625rem; font-weight: 650; letter-spacing: -0.015em; }
+.subtle   { font-size: 0.75rem; color: var(--text-2); }
+.hint     { font-size: 0.75rem; color: var(--text-2); margin: 0.5rem 0.25rem 1rem; }
+
+.section-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-2);
+  margin: 1rem 0.25rem 0.4rem;
+}
+
+/* ── Buttons ──────────────────────────────────────────────────────── */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  font: inherit;
+  font-weight: 550;
+  color: var(--text);
+  background: var(--fill);
+  border: 0;
+  border-radius: 10px;
+  padding: 0.5rem 0.8rem;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  transition: transform 100ms ease-out, background-color 150ms ease, opacity 150ms ease;
+}
+.btn:hover  { background: var(--fill-2); }
+.btn:active { transform: scale(0.97); }   /* feedback on press, not on release */
+
+.btn-primary        { background: var(--accent); color: var(--on-accent); }
+.btn-primary:hover  { background: var(--accent-press); }
+.btn-tinted         { background: var(--accent-tint); color: var(--accent-text); }
+.btn-tinted:hover   { background: var(--accent-tint); opacity: 0.8; }
+.btn-plain          { background: none; color: var(--accent-text); padding-left: 0.4rem; padding-right: 0.4rem; }
+.btn-plain:hover    { background: var(--fill); }
+.btn-danger         { color: var(--red); }
+.btn-block          { display: flex; width: 100%; }
+.btn-small          { font-size: 0.75rem; padding: 0.3rem 0.6rem; border-radius: var(--radius-sm); }
+.btn-icon           { width: 1.75rem; height: 1.75rem; padding: 0; border-radius: 50%; color: var(--text-2); font-size: 0.8125rem; }
+
+:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+
+/* ── Form controls ────────────────────────────────────────────────── */
+
+input:not([type="file"]), select, textarea {
+  font: inherit;
+  color: var(--text);
+  background: var(--fill);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 0.45rem 0.6rem;
+  width: 100%;
+  min-width: 0;
+  outline: none;
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+input::placeholder, textarea::placeholder { color: var(--text-3); }
+input:focus, select:focus, textarea:focus { border-color: var(--accent-text); background: var(--surface); }
+input[readonly] { color: var(--text-2); }
+textarea { resize: vertical; min-height: 5rem; line-height: 1.45; }
+
+.field { margin-bottom: 0.7rem; }
+.field label { display: block; font-size: 0.75rem; font-weight: 500; color: var(--text-2); margin: 0 0 0.25rem 0.15rem; }
+
+/* ── Segmented control ────────────────────────────────────────────── */
+
+.segmented {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--fill);
+  border-radius: 9px;
+}
+.seg {
+  flex: 1;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text);
+  background: none;
+  border: 0;
+  border-radius: 7px;
+  padding: 0.32rem 0.2rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 150ms ease, transform 100ms ease-out;
+}
+.seg:active { transform: scale(0.97); }
+.seg.active {
+  font-weight: 600;
+  background: light-dark(#ffffff, rgba(255, 255, 255, 0.14));
+  box-shadow: 0 1px 3px light-dark(rgba(0, 0, 0, 0.12), transparent), 0 0 0 0.5px light-dark(rgba(0, 0, 0, 0.04), transparent);
+}
+
+/* ── Status pills ─────────────────────────────────────────────────── */
+
+.pill {
+  --c: var(--gray);
+  display: inline-block;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-transform: capitalize;
+  white-space: nowrap;
+  color: var(--c);
+  background: color-mix(in srgb, var(--c) 13%, transparent);
+  border-radius: 999px;
+  padding: 0.15rem 0.5rem;
+}
+.pill-applied   { --c: var(--blue); }
+.pill-interview { --c: var(--orange); }
+.pill-offer     { --c: var(--green); }
+.pill-rejected  { --c: var(--red); }
+
+/* ── Scrollbars ───────────────────────────────────────────────────── */
+
+* { scrollbar-width: thin; scrollbar-color: var(--fill-2) transparent; }
+
+/* ── Motion preferences ───────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 1ms !important; animation-duration: 1ms !important; }
+  .btn:active, .seg:active { transform: none; }
+}

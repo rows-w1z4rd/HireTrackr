@@ -1,8 +1,8 @@
 // ╔══════════════════════════════════════════════════════════════╗
-// ║           HIRETRACK — INTERNATIONAL JOB DETECTION           ║
-// ║  Drop this file in hiretrack/ and add to popup.html:        ║
+// ║           HIRETRACKR — INTERNATIONAL JOB DETECTION          ║
+// ║  Loaded by sidepanel/sidepanel.html:                        ║
 // ║  <script src="../jobDetection.js"></script>                  ║
-// ║  (before popup.js)                                          ║
+// ║  (before sidepanel.js)                                      ║
 // ╚══════════════════════════════════════════════════════════════╝
 
 // ── KNOWN JOB BOARD DOMAINS ──────────────────────────────────────

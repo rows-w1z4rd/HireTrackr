@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>HireTrackr</title>
+  <script src="../theme.js"></script>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="sidepanel.css" />
+</head>
+<body>
+
+  <!-- Help / first-run screen -->
+  <section id="onboarding" class="help" hidden>
+    <h1 class="help-title">Welcome to HireTrackr</h1>
+    <p class="help-lead">Your job search, kept on your own device.</p>
+    <ul class="help-list">
+      <li><strong>Save jobs</strong><span>Open a job listing and press Save this job.</span></li>
+      <li><strong>Track them</strong><span>Move each application through the pipeline board.</span></li>
+      <li><strong>Apply faster</strong><span>Autofill your details, then drag a CV from the vault onto the page's upload field.</span></li>
+      <li><strong>Reuse your words</strong><span>Keep email templates and snippets one click away.</span></li>
+      <li><strong>Private by default</strong><span>No account and no cloud. Nothing leaves this browser.</span></li>
+    </ul>
+    <button id="close-help-btn" class="btn btn-primary btn-block">Get started</button>
+    <a id="support-email" class="help-link" href="#">Contact support</a>
+  </section>
+
+  <div id="main-app">
+    <header class="header">
+      <div>
+        <div class="wordmark">HireTrackr</div>
+        <div id="job-count" class="subtle">0 jobs saved</div>
+      </div>
+      <div class="header-actions">
+        <button id="open-pipeline" class="btn btn-plain">Pipeline</button>
+        <button id="help-icon" class="btn btn-icon" title="Help" aria-label="Help">?</button>
+      </div>
+    </header>
+
+    <div class="actions">
+      <button id="save-job-btn" class="btn btn-primary">Save this job</button>
+      <button id="autofill-btn" class="btn btn-tinted">Autofill page</button>
+    </div>
+
+    <nav class="segmented tabs">
+      <button class="seg tab active" data-tab="jobs">Jobs</button>
+      <button class="seg tab" data-tab="cvs">CVs</button>
+      <button class="seg tab" data-tab="emails">Emails</button>
+      <button class="seg tab" data-tab="snippets">Snippets</button>
+      <button class="seg tab" data-tab="profile">Profile</button>
+    </nav>
+
+    <main class="content">
+
+      <!-- JOBS TAB -->
+      <section id="tab-jobs" class="tab-panel">
+        <div class="filters">
+          <input id="job-search" type="search" placeholder="Search" />
+          <select id="status-filter" aria-label="Filter by status">
+            <option value="">All</option>
+            <option value="saved">Saved</option>
+            <option value="applied">Applied</option>
+            <option value="interview">Interview</option>
+            <option value="offer">Offer</option>
+            <option value="rejected">Rejected</option>
+          </select>
+        </div>
+        <div class="section-head">
+          <span class="section-label">Saved jobs</span>
+          <button id="add-job-manual-btn" class="btn btn-plain btn-small">Add manually</button>
+        </div>
+        <div id="jobs-list"></div>
+        <button id="export-csv-btn" class="btn btn-plain btn-block">Export all jobs as CSV</button>
+      </section>
+
+      <!-- CV VAULT TAB -->
+      <section id="tab-cvs" class="tab-panel" hidden>
+        <label class="btn btn-tinted btn-block">
+          Upload a CV
+          <input type="file" id="cv-upload" accept=".pdf,.docx,.doc" hidden />
+        </label>
+        <p class="hint" id="cv-hint"></p>
+        <div id="cvs-list"></div>
+      </section>
+
+      <!-- EMAILS TAB -->
+      <section id="tab-emails" class="tab-panel" hidden>
+        <button id="add-template-btn" class="btn btn-tinted btn-block">New email template</button>
+        <div class="section-label">Email templates</div>
+        <div id="templates-list"></div>
+      </section>
+
+      <!-- SNIPPETS TAB -->
+      <section id="tab-snippets" class="tab-panel" hidden>
+        <button id="add-snippet-btn" class="btn btn-tinted btn-block">New snippet</button>
+        <div class="section-label">Snippets</div>
+        <div id="snippets-list"></div>
+      </section>
+
+      <!-- PROFILE TAB -->
+      <section id="tab-profile" class="tab-panel" hidden>
+        <div class="section-label first">Your details</div>
+        <form id="profile-form" class="group"></form>
+        <button id="save-profile-btn" class="btn btn-primary btn-block">Save profile</button>
+        <p class="hint">Autofill page types these into application forms. They are stored only on this device.</p>
+
+        <div class="section-label">Settings</div>
+        <div class="group">
+          <div class="row">
+            <div class="row-text">
+              <div class="row-title">Appearance</div>
+            </div>
+            <div class="segmented" id="theme-choice">
+              <button type="button" class="seg" data-theme-choice="system">System</button>
+              <button type="button" class="seg" data-theme-choice="light">Light</button>
+              <button type="button" class="seg" data-theme-choice="dark">Dark</button>
+            </div>
+          </div>
+          <div class="row">
+            <div class="row-text">
+              <div class="row-title">Open HireTrackr as</div>
+              <div class="row-note">Dragging a CV onto a page needs the side panel.</div>
+            </div>
+            <div class="segmented" id="open-as">
+              <button type="button" class="seg" data-open-as="panel">Side panel</button>
+              <button type="button" class="seg" data-open-as="popup">Popup</button>
+            </div>
+          </div>
+          <div class="row">
+            <div class="row-text">
+              <div class="row-title">Autofill and CV drop</div>
+              <div class="row-note" id="apply-status"></div>
+            </div>
+            <button type="button" id="apply-toggle" class="btn btn-small"></button>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Sheet for editing a job, template or snippet -->
+  <div id="job-modal" class="layer">
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="sheet-header">
+        <span id="modal-title" class="sheet-title"></span>
+        <button id="close-modal" class="btn btn-icon" aria-label="Close">✕</button>
+      </div>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+  <!-- Small confirmation / text-entry dialog -->
+  <div id="dialog" class="layer layer-center">
+    <div id="dialog-box" class="alert" role="alertdialog" aria-modal="true"></div>
+  </div>
+
+  <div id="toasts" aria-live="polite"></div>
+
+  <script src="../jobDetection.js"></script>
+  <script src="../storage.js"></script>
+  <script src="sidepanel.js"></script>
+</body>
+</html>

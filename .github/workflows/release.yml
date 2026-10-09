@@ -1,0 +1,82 @@
+name: Release build
+
+# Packs the extension into a zip and publishes it under Releases.
+#
+# How to use:
+#   1. Bump "version" in manifest.json and push.
+#   2. GitHub > Actions > "Release build" > Run workflow (pick the branch).
+#      (Pushing a tag like v1.1 does the same thing.)
+#
+# The release is named after the manifest version. A run from any branch other
+# than main is marked "Pre-release" so it never shows up as the latest build.
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read version from manifest.json
+        run: |
+          VERSION=$(node -p "require('./manifest.json').version")
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "ZIP=hiretrackr-v$VERSION.zip" >> "$GITHUB_ENV"
+          if [ "$GITHUB_REF_TYPE" = "tag" ] && [ "$GITHUB_REF_NAME" != "v$VERSION" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match manifest.json version $VERSION"
+            exit 1
+          fi
+          if gh release view "v$VERSION" > /dev/null 2>&1; then
+            echo "::error::Release v$VERSION already exists. Bump \"version\" in manifest.json first."
+            exit 1
+          fi
+
+      - name: Check scripts parse and manifest paths exist
+        run: |
+          for f in $(git ls-files '*.js'); do node --check "$f"; done
+          node -e '
+            const fs = require("fs");
+            const m = require("./manifest.json");
+            const paths = [
+              m.background.service_worker,
+              m.side_panel.default_path,
+              ...m.content_scripts.flatMap(c => c.js),
+              ...Object.values(m.icons),
+              ...Object.values(m.action.default_icon),
+            ];
+            const missing = paths.filter(p => !fs.existsSync(p));
+            if (missing.length) { console.error("Missing files named in manifest.json:", missing); process.exit(1); }
+          '
+
+      # Everything tracked in git ships, except docs and repo tooling.
+      - name: Build zip
+        run: |
+          git ls-files -- . ':!*.md' ':!.github' ':!.gitignore' ':!.gitattributes' ':!docs' ':!dev' | zip -@ "$ZIP"
+          unzip -l "$ZIP"
+
+      # The release page itself tells people how to install the zip.
+      - name: Publish release
+        run: |
+          cat > notes.md <<EOF
+          ## Install
+          1. Download \`$ZIP\` below and unzip it somewhere you will keep it.
+          2. Open \`chrome://extensions\` (or \`edge://extensions\`) and turn on **Developer mode**.
+          3. Click **Load unpacked** and choose the unzipped folder.
+          4. Pin HireTrackr from the puzzle-piece menu and click its icon.
+
+          Chrome does not auto-update extensions installed this way. To update, unzip the
+          new version over the same folder and press the reload arrow on the extension card;
+          your saved jobs and CVs are kept. Deleting the folder removes the extension.
+          EOF
+          FLAGS=""
+          if [ "$GITHUB_REF_TYPE" != "tag" ] && [ "$GITHUB_REF_NAME" != "main" ]; then FLAGS="--prerelease"; fi
+          gh release create "v$VERSION" "$ZIP" --title "HireTrackr v$VERSION" --notes-file notes.md --generate-notes --target "$GITHUB_SHA" $FLAGS

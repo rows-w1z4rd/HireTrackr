@@ -1,6 +1,6 @@
-// HireTrack — content.js
+// HireTrackr — content.js
 // Runs inside supported job board pages.
-// Extracts job title and company from the DOM and sends to the extension.
+// Extracts job title and company from the DOM when the extension asks for them.
 
 (function () {
   'use strict';
@@ -75,44 +75,27 @@
     return '';
   }
 
+  // Most specific domain wins, so boards.greenhouse.io is not swallowed by greenhouse.io.
   function findExtractor() {
-    for (const [domain, config] of Object.entries(EXTRACTORS)) {
-      if (host.includes(domain)) return config;
-    }
-    return null;
+    const domain = Object.keys(EXTRACTORS)
+      .filter(d => host === d || host.endsWith('.' + d))
+      .sort((a, b) => b.length - a.length)[0];
+    return domain ? EXTRACTORS[domain] : null;
   }
 
-  function tryExtract() {
+  function extract() {
     const extractor = findExtractor();
-    if (!extractor) return;
-
-    const title   = findText(extractor.title   || []).slice(0, 200);
-    const company = findText(extractor.company || []).slice(0, 100);
-
-    if (title || company) {
-      chrome.runtime.sendMessage({
-        type:    'JOB_DATA',
-        title:   title,
-        company: company,
-        url:     location.href
-      });
-    }
+    return {
+      title:   findText(extractor?.title   || []).slice(0, 200),
+      company: findText(extractor?.company || []).slice(0, 100),
+    };
   }
 
-  // Try immediately (most pages are already loaded when content script runs)
-  tryExtract();
-
-  // Also try after a short delay for SPAs (React/Vue pages that render after JS runs)
-  setTimeout(tryExtract, 1500);
-
-  // Watch for DOM changes (for single-page apps that navigate without full reload)
-  let lastUrl = location.href;
-  const observer = new MutationObserver(() => {
-    if (location.href !== lastUrl) {
-      lastUrl = location.href;
-      setTimeout(tryExtract, 1000); // wait for new page content to load
-    }
+  // The extension asks at the moment the user clicks "Save this job": the page
+  // is fully rendered by then, and nothing is lost while the side panel is closed.
+  chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    if (sender.id !== chrome.runtime.id || msg?.type !== 'GET_JOB_DATA') return;
+    sendResponse(extract());
   });
-  observer.observe(document.body, { childList: true, subtree: true });
 
 })();

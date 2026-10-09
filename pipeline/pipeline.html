@@ -1,69 +1,61 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>HireTrack — Pipeline</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>HireTrackr — Pipeline</title>
+  <script src="../theme.js"></script>
+  <link rel="stylesheet" href="../theme.css" />
   <link rel="stylesheet" href="pipeline.css" />
 </head>
 <body>
-  <div class="noise"></div>
 
-  <div class="page">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="wordmark">HireTrackr</div>
+      <span id="last-updated" class="subtle"></span>
+    </div>
+  </header>
 
-    <header class="topbar">
-      <div class="topbar-left">
-        <div class="logo">Hire<span>Track</span></div>
-        <div class="divider-v"></div>
-        <span class="page-subtitle">Pipeline</span>
-      </div>
-      <div class="topbar-right">
-        <span id="last-updated" class="muted-text"></span>
-        <button class="icon-btn" title="Refresh" onclick="location.reload()">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-        </button>
-      </div>
-    </header>
+  <main class="page">
+    <h1 class="page-title">Pipeline</h1>
 
-    <div class="stats-grid" id="stats"></div>
+    <div class="stats" id="stats"></div>
 
-    <div class="board-label">
-      <span class="section-label">Kanban board</span>
-      <span class="board-hint">Drag cards to move between stages</span>
+    <div class="section-head">
+      <h2 class="section-title">Board</h2>
+      <span class="subtle">Drag a card to change its stage</span>
     </div>
     <div class="kanban" id="kanban"></div>
 
-    <div class="section-label" style="margin-top:32px;margin-bottom:12px;">Recent activity</div>
+    <div class="section-head">
+      <h2 class="section-title">Recent activity</h2>
+    </div>
     <div class="recent-list" id="recent"></div>
-
-  </div>
+  </main>
 
   <!-- Edit modal -->
   <div id="modal-overlay" class="modal-overlay hidden">
-    <div class="modal-box">
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modal-job-title">
       <div class="modal-header">
-        <div>
-          <div class="modal-eyebrow">Editing</div>
-          <div class="modal-heading" id="modal-job-title">Job details</div>
-        </div>
-        <button id="modal-close" class="modal-close-btn">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
-        </button>
+        <div class="modal-heading" id="modal-job-title">Job details</div>
+        <button id="modal-close" class="btn btn-icon" aria-label="Close">✕</button>
       </div>
 
       <div class="modal-body">
         <div class="field-row">
           <div class="field">
-            <label>Job title</label>
+            <label for="m-title">Job title</label>
             <input id="m-title" type="text" placeholder="Senior Designer" />
           </div>
           <div class="field">
-            <label>Company</label>
+            <label for="m-company">Company</label>
             <input id="m-company" type="text" placeholder="Stripe" />
           </div>
         </div>
         <div class="field-row">
           <div class="field">
-            <label>Status</label>
+            <label for="m-status">Status</label>
             <select id="m-status">
               <option value="saved">Saved</option>
               <option value="applied">Applied</option>
@@ -73,40 +65,41 @@
             </select>
           </div>
           <div class="field">
-            <label>CV attached</label>
+            <label for="m-cv">CV attached</label>
             <select id="m-cv"><option value="">— None —</option></select>
           </div>
         </div>
         <div class="field">
-          <label>Emailed recruiter?</label>
+          <label for="m-emailed">Emailed recruiter?</label>
           <select id="m-emailed">
             <option value="false">Not yet</option>
             <option value="true">Yes, emailed</option>
           </select>
         </div>
         <div class="field">
-          <label>Notes</label>
+          <label for="m-notes">Notes</label>
           <textarea id="m-notes" placeholder="Interview format, salary, contact, referral source..."></textarea>
         </div>
         <div class="field">
-          <label>URL</label>
+          <label>Link</label>
           <div class="url-row">
             <span id="m-url-display" class="url-text"></span>
-            <button id="modal-open-url" class="btn-url">Open ↗</button>
+            <button id="modal-open-url" class="btn btn-small btn-tinted">Open</button>
           </div>
         </div>
       </div>
 
       <div class="modal-footer">
-        <button id="modal-delete" class="btn-delete">Delete job</button>
+        <button id="modal-delete" class="btn btn-plain btn-danger">Delete job</button>
         <div class="footer-right">
-          <button id="modal-cancel" class="btn-cancel">Cancel</button>
-          <button id="modal-save" class="btn-save">Save changes</button>
+          <button id="modal-cancel" class="btn">Cancel</button>
+          <button id="modal-save" class="btn btn-primary">Save changes</button>
         </div>
       </div>
     </div>
   </div>
 
+  <script src="../storage.js"></script>
   <script src="pipeline.js"></script>
 </body>
 </html>

@@ -5,6 +5,7 @@ const STATUS_LABELS = {
 };
 
 // ── State ─────────────────────────────────────────────────────────
+// `store` comes from ../storage.js
 let jobs = [];
 let cvs  = [];
 let editingId = null;
@@ -13,33 +14,32 @@ let dragId    = null;
 // ── Boot ──────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
   try {
-    const data = await new Promise((resolve, reject) => {
-      chrome.storage.local.get(['jobs', 'cvs'], (d) => {
-        if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
-        else resolve(d);
-      });
-    });
-    jobs = data.jobs || [];
-    cvs  = data.cvs  || [];
+    jobs = await store.get('jobs');
+    cvs  = await store.get('cvs');
   } catch (err) {
     jobs = [];
     cvs = [];
   }
   renderAll();
   bindModal();
+
+  // Stay in step with jobs saved or edited from the side panel while this tab is open
+  store.onChange((key, val) => {
+    if (key === 'settings') { applyTheme(val?.theme); return; }   // from ../theme.js
+    if      (key === 'jobs') jobs = val || [];
+    else if (key === 'cvs')  cvs  = val || [];
+    else return;
+    renderAll();
+  });
 });
 
 // ── Persist ───────────────────────────────────────────────────────
-async function persist() {
-  return new Promise((resolve, reject) => {
-    chrome.storage.local.set({ jobs }, () => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-      } else {
-        resolve();
-      }
-    });
-  });
+// Applies a change to one job on top of the latest stored list.
+// change(job) returns the fields to overwrite.
+async function updateJob(id, change) {
+  jobs = await store.update('jobs', list =>
+    list.map(j => j.id === id ? { ...j, ...change(j) } : j)
+  );
 }
 
 // ── Render everything ─────────────────────────────────────────────
@@ -192,14 +192,17 @@ function createCardElement(job) {
   editBtn.title = 'Edit';
   editBtn.textContent = 'Edit';
   
-  const linkBtn = document.createElement('button');
-  linkBtn.className = 'k-btn k-btn-link';
-  linkBtn.dataset.url = job.url;
-  linkBtn.title = 'Open job';
-  linkBtn.textContent = '↗';
-  
   actions.appendChild(editBtn);
-  actions.appendChild(linkBtn);
+
+  // Jobs added by hand may have no link
+  if (job.url) {
+    const linkBtn = document.createElement('button');
+    linkBtn.className = 'k-btn k-btn-link';
+    linkBtn.dataset.url = job.url;
+    linkBtn.title = 'Open job';
+    linkBtn.textContent = '↗';
+    actions.appendChild(linkBtn);
+  }
   
   card.appendChild(title);
   card.appendChild(company);
@@ -244,9 +247,7 @@ function bindColDrop(col) {
     const newStatus = col.dataset.status;
     const job = jobs.find(j => j.id === id);
     if (!job || job.status === newStatus) return;
-    job.status = newStatus;
-    job.updatedAt = new Date().toISOString();
-    await persist();
+    await updateJob(id, () => ({ status: newStatus, updatedAt: new Date().toISOString() }));
     renderAll();
   });
 }
@@ -262,7 +263,7 @@ function bindModal() {
   document.getElementById('modal-delete').addEventListener('click', deleteJob);
   document.getElementById('modal-open-url').addEventListener('click', () => {
     const job = jobs.find(j => j.id === editingId);
-    if (job) chrome.tabs.create({ url: job.url });
+    if (job?.url) chrome.tabs.create({ url: job.url });
   });
   
   // Event delegation for kanban cards - prevents memory leaks
@@ -296,7 +297,8 @@ function openEditModal(id) {
   document.getElementById('m-status').value  = job.status;
   document.getElementById('m-emailed').value = job.emailed ? 'true' : 'false';
   document.getElementById('m-notes').value   = job.notes || '';
-  document.getElementById('m-url-display').textContent = job.url;
+  document.getElementById('m-url-display').textContent = job.url || 'No link saved';
+  document.getElementById('modal-open-url').style.display = job.url ? '' : 'none';
 
   // Populate CV dropdown
   const cvSel = document.getElementById('m-cv');
@@ -324,43 +326,45 @@ function closeModal() {
 }
 
 async function saveModal() {
-  const job = jobs.find(j => j.id === editingId);
-  if (!job) return;
+  const id = editingId;
+  if (!jobs.some(j => j.id === id)) return;
 
   const newTitle   = document.getElementById('m-title').value.trim();
   const newCompany = document.getElementById('m-company').value.trim();
   const newStatus  = document.getElementById('m-status').value;
-  const prevStatus = job.status;
+  const cvId       = document.getElementById('m-cv').value || null;
+  const emailed    = document.getElementById('m-emailed').value === 'true';
+  const notes      = document.getElementById('m-notes').value;
+  const updatedAt  = new Date().toISOString();
 
-  job.title     = newTitle   || job.title;
-  job.company   = newCompany || job.company;
-  job.status    = newStatus;
-  job.cvId      = document.getElementById('m-cv').value || null;
-  job.emailed   = document.getElementById('m-emailed').value === 'true';
-  job.notes     = document.getElementById('m-notes').value;
-  job.updatedAt = new Date().toISOString();
+  await updateJob(id, job => {
+    const changes = {
+      title:   newTitle   || job.title,
+      company: newCompany || job.company,
+      status:  newStatus,
+      cvId, emailed, notes, updatedAt,
+    };
+    // Log status change in activity if status changed
+    if (job.status !== newStatus) {
+      changes.statusHistory = [...(job.statusHistory || []), { from: job.status, to: newStatus, at: updatedAt }];
+    }
+    return changes;
+  });
 
-  // Log status change in activity if status changed
-  if (prevStatus !== newStatus) {
-    job.statusHistory = job.statusHistory || [];
-    job.statusHistory.push({ from: prevStatus, to: newStatus, at: job.updatedAt });
-  }
-
-  await persist();
   closeModal();
   renderAll();
 
   // Flash the updated card briefly
   setTimeout(() => {
-    const card = document.querySelector(`.k-card[data-id="${job.id}"]`);
+    const card = document.querySelector(`.k-card[data-id="${id}"]`);
     if (card) { card.classList.add('just-updated'); setTimeout(() => card.classList.remove('just-updated'), 800); }
   }, 50);
 }
 
 async function deleteJob() {
   if (!confirm('Delete this job? This cannot be undone.')) return;
-  jobs = jobs.filter(j => j.id !== editingId);
-  await persist();
+  const id = editingId;
+  jobs = await store.update('jobs', list => list.filter(j => j.id !== id));
   closeModal();
   renderAll();
 }
