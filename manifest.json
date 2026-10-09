@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "HireTrackr",
-  "version": "1.1",
-  "description": "Track jobs, manage CVs, and write emails — all from your browser.",
+  "version": "1.2",
+  "description": "Save jobs, track applications, autofill forms and drop your CV into upload fields. No account. Nothing leaves your browser.",
   "minimum_chrome_version": "123",
   "icons": {
     "16": "icons/favicon_io/favicon-16x16.png",
