@@ -36,6 +36,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 // ── Persist ───────────────────────────────────────────────────────
 // Applies a change to one job on top of the latest stored list.
 // change(job) returns the fields to overwrite.
+// The fields to write when a job moves to another stage. Every move is logged
+// in statusHistory, whether it came from a drag or from the edit window.
+function stageChange(job, newStatus, at) {
+  return {
+    status: newStatus,
+    updatedAt: at,
+    statusHistory: [...(job.statusHistory || []), { from: job.status, to: newStatus, at }],
+  };
+}
+
 async function updateJob(id, change) {
   jobs = await store.update('jobs', list =>
     list.map(j => j.id === id ? { ...j, ...change(j) } : j)
@@ -247,7 +257,8 @@ function bindColDrop(col) {
     const newStatus = col.dataset.status;
     const job = jobs.find(j => j.id === id);
     if (!job || job.status === newStatus) return;
-    await updateJob(id, () => ({ status: newStatus, updatedAt: new Date().toISOString() }));
+    const at = new Date().toISOString();
+    await updateJob(id, j => j.status === newStatus ? {} : stageChange(j, newStatus, at));
     renderAll();
   });
 }
@@ -341,13 +352,9 @@ async function saveModal() {
     const changes = {
       title:   newTitle   || job.title,
       company: newCompany || job.company,
-      status:  newStatus,
       cvId, emailed, notes, updatedAt,
     };
-    // Log status change in activity if status changed
-    if (job.status !== newStatus) {
-      changes.statusHistory = [...(job.statusHistory || []), { from: job.status, to: newStatus, at: updatedAt }];
-    }
+    if (job.status !== newStatus) Object.assign(changes, stageChange(job, newStatus, updatedAt));
     return changes;
   });
 

@@ -5,12 +5,14 @@ let profile = {}, settings = {};
 let editingJobId = null;
 let applyEnabled = false;   // the user has allowed HireTrackr to act on pages (autofill / CV drop)
 let draggedCV = null;       // { id, tabId, until, ready } while a CV card is being dragged
+let downloadsAllowed = false;   // the user has allowed keeping a copy of a CV in the Downloads folder
 
 // The same page is used as the side panel and as the popup (sidepanel.html?popup)
 const IS_POPUP = new URLSearchParams(location.search).has('popup');
 if (IS_POPUP) document.documentElement.classList.add('popup');
 
 const ALL_SITES = { origins: ['*://*/*'] };
+const DOWNLOADS = { permissions: ['downloads'] };
 const STATUSES = ['saved', 'applied', 'interview', 'offer', 'rejected'];
 const MAX_CV_SIZE = 5 * 1024 * 1024; // 5MB
 
@@ -222,6 +224,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   profile   = await store.get('profile', {});
   settings  = await store.get('settings', {});
   applyEnabled = await chrome.permissions.contains(ALL_SITES).catch(() => false);
+  downloadsAllowed = await chrome.permissions.contains(DOWNLOADS).catch(() => false);
   applyTheme(settings.theme);   // from ../theme.js
 
   // Stay in step with changes made from the pipeline page or another window's panel
@@ -243,6 +246,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const onPermissionChange = async () => {
     applyEnabled = await chrome.permissions.contains(ALL_SITES).catch(() => false);
+    downloadsAllowed = await chrome.permissions.contains(DOWNLOADS).catch(() => false);
     renderSettings();
     renderCVs();
   };
@@ -274,13 +278,6 @@ function bindHelp() {
     showHelp(false);
     await chrome.storage.local.set({ onboarded: true });
   });
-
-  // Protect support email from scrapers - inject dynamically with obfuscation
-  const supportEmailLink = document.getElementById('support-email');
-  // Obfuscated email - split and reversed to prevent simple scraping
-  const user = ['m', 'o', 'c', '.', 't', 'r', 'a', 'c', 'k', 'e', 'r', 'i', 'h'].reverse().join('');
-  const domain = ['m', 'o', 'c', '.', 'l', 'i', 'a', 'm', 'g'].reverse().join('');
-  supportEmailLink.href = 'mailto:' + user + '@' + domain;
 }
 
 // ── Render all panels ────────────────────────────────────────────
@@ -354,9 +351,8 @@ function bindButtons() {
       attachCV(id);
     } else if (btn.dataset.act === 'preview') {
       previewCV(id);
-    } else if (btn.dataset.act === 'copy') {
-      navigator.clipboard.writeText(`CV: ${cv.name}\nFile: ${cv.filename}`);
-      flashCopied(btn);
+    } else if (btn.dataset.act === 'folder') {
+      showCVInFolder(id);
     } else if (btn.dataset.act === 'delete') {
       await deleteCVBlob(id).catch(() => {}); // Silently ignore blob delete failures
       cvs = await store.update('cvs', list => list.filter(c => c.id !== id));
@@ -639,11 +635,17 @@ async function saveJobModal() {
     jobs = await store.update('jobs', list => [job, ...list]);
   } else {
     const id = editingJobId;
+    const at = new Date().toISOString();
     jobs = await store.update('jobs', list => list.map(j => j.id !== id ? j : {
       ...j,
       ...fields,
       title:   fields.title   || j.title,
       company: fields.company || j.company,
+      updatedAt: at,
+      // A stage change is logged here exactly as the pipeline page logs it
+      statusHistory: j.status === fields.status
+        ? j.statusHistory
+        : [...(j.statusHistory || []), { from: j.status, to: fields.status, at }],
     }));
   }
   renderAll();
@@ -722,6 +724,96 @@ async function previewCV(id) {
   }
 }
 
+// ── CV as a real file on disk: the last resort ───────────────────
+// For a site that takes neither the drop nor Attach. Keeps ONE copy of the CV
+// in Downloads/HireTrackr and opens that folder with the file selected, so it
+// can be dragged from the file manager like any other file. The copy is
+// reused on later presses and overwritten if it has to be written again, so
+// the Downloads folder never fills up with duplicates.
+async function showCVInFolder(id) {
+  // The permission is asked for here, straight from the click, the first time only
+  const allowed = downloadsAllowed || await chrome.permissions.request(DOWNLOADS).catch(() => false);
+  if (!allowed) {
+    toast('Not turned on. Chrome shows its own box for this: press Allow there.', 'error');
+    return;
+  }
+  downloadsAllowed = true;
+  if (!chrome.downloads) {
+    toast('Almost there. Close and reopen HireTrackr, then press Show in folder again.');
+    return;
+  }
+
+  let url = null;
+  try {
+    const cv = cvs.find(c => c.id === id);
+    let downloadId = cv.downloadId != null && await diskCopyExists(cv.downloadId) ? cv.downloadId : null;
+
+    if (downloadId === null) {
+      const blob = await getCVBlob(id);
+      if (!blob) throw new Error('missing');
+      url = URL.createObjectURL(blob);
+      downloadId = await chrome.downloads.download({
+        url,
+        filename: 'HireTrackr/' + diskName(cv),
+        conflictAction: 'overwrite',   // same file every time, never "cv (2).pdf"
+        saveAs: false,
+      });
+      await downloadFinished(downloadId);
+      cvs = await store.update('cvs', list => list.map(c => c.id === id ? { ...c, downloadId } : c));
+      toast('Saved one copy in Downloads / HireTrackr');
+    }
+    chrome.downloads.show(downloadId);
+  } catch (err) {
+    toast('Couldn\'t put that CV in your Downloads folder', 'error');
+  } finally {
+    if (url) URL.revokeObjectURL(url);
+  }
+}
+
+// Is the copy saved earlier still on disk?
+async function diskCopyExists(downloadId) {
+  // Chrome only notices a deleted file when asked, and reports it on the next ask
+  await chrome.downloads.search({ id: downloadId });
+  await new Promise(resolve => setTimeout(resolve, 150));
+  const [item] = await chrome.downloads.search({ id: downloadId });
+  return !!item && item.state === 'complete' && item.exists;
+}
+
+function downloadFinished(downloadId) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = (fn, value) => {
+      if (settled) return;
+      settled = true;
+      chrome.downloads.onChanged.removeListener(onChanged);
+      clearTimeout(timer);
+      fn(value);
+    };
+    const onChanged = (delta) => {
+      if (delta.id !== downloadId || !delta.state) return;
+      if (delta.state.current === 'complete') finish(resolve);
+      if (delta.state.current === 'interrupted') finish(reject, new Error('interrupted'));
+    };
+    const timer = setTimeout(() => finish(reject, new Error('timeout')), 15000);
+    chrome.downloads.onChanged.addListener(onChanged);
+    // a small file can be finished before the listener is in place
+    chrome.downloads.search({ id: downloadId }).then(([item]) => {
+      if (item?.state === 'complete') finish(resolve);
+    });
+  });
+}
+
+// File name for the copy on disk. Two CVs uploaded under the same file name
+// get their label added, so one doesn't overwrite the other.
+function diskName(cv) {
+  const clean = (text) => String(text).replace(/[\\/:*?"<>|\x00-\x1f]/g, ' ').replace(/\s+/g, ' ').replace(/ \./g, '.').trim();
+  const filename = clean(cv.filename) || 'cv.pdf';
+  if (!cvs.some(other => other.id !== cv.id && other.filename === cv.filename)) return filename;
+  const dot = filename.lastIndexOf('.');
+  const label = clean(cv.name) || cv.id.slice(0, 8);
+  return dot > 0 ? `${filename.slice(0, dot)} - ${label}${filename.slice(dot)}` : `${filename} - ${label}`;
+}
+
 function renderCVs() {
   const list = document.getElementById('cvs-list');
   if (!list) return;
@@ -741,8 +833,8 @@ function renderCVs() {
       el('div', { className: 'item-note', textContent: c.filename }),
       el('div', { className: 'item-actions' },
         el('button', { className: 'btn btn-small btn-tinted', textContent: 'Attach', dataset: { act: 'attach' } }),
+        el('button', { className: 'btn btn-small', textContent: 'Show in folder', title: 'Opens the file in your Downloads folder, to drag it from there', dataset: { act: 'folder' } }),
         el('button', { className: 'btn btn-small', textContent: 'Preview', dataset: { act: 'preview' } }),
-        el('button', { className: 'btn btn-small', textContent: 'Copy name', dataset: { act: 'copy' } }),
         el('button', { className: 'btn btn-small btn-danger', textContent: 'Delete', dataset: { act: 'delete' } }),
       ),
     );
@@ -907,7 +999,7 @@ function onPageMessage(msg, sender, sendResponse) {
   if (msg?.type === 'HT_DROP_RESULT') {
     if (!msg.ok) toast('Couldn\'t drop that CV', 'error');
     else if (msg.via === 'input') toast('CV attached');
-    else toast('CV dropped. Check the page shows it.');
+    else toast('CV dropped. If the page doesn\'t show it, use Show in folder.');
   }
 }
 
